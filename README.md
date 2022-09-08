@@ -1,2 +1,2 @@
 # ti-DEMPM 
-# developed by Shi-Yihao Zhejinag univ.
+- developed by Shi-Yihao Zhejinag univ.
