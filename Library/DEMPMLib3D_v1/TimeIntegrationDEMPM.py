@@ -54,8 +54,8 @@ class TimeIntegrationDEMPM:
                 self.Output(start)
                 self.printNum += 1
             
-            #self.dempm.neighborList.SumMPMParticles()
-            #self.dempm.neighborList.BoardMPMNeighborList()
+            self.dempm.DEMPMneighborList.SumMPMParticles()
+            self.dempm.DEMPMneighborList.BoardMPMNeighborList()
             self.dempm.DEMPMneighborList.BoardSearchP2M()
             self.dempm.DEMPMneighborList.FineSearchP2M()
             self.dempm.DEMPMcontPair.Reset()

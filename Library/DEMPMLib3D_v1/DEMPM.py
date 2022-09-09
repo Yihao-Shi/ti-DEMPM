@@ -89,35 +89,35 @@ class DEMPM:
             if ti.static(self.mpm.Algorithm == 0):
                 print("MPM Integration Scheme: GIMP\n")
                 self.MPMEngine = MPMEngine.USF(self.mpm.Gravity, self.mpm.threshold, self.mpm.partList, self.mpm.gridList, self.mpm.matList)
-                self.MPMLoop = TimeIntegrationMPM.FlowUSF(self.mpm)
+                self.MPMLoop = TimeIntegrationMPM.FlowUSF(self)
             elif ti.static(self.mpm.Algorithm == 1):
                 print("MPM Integration Scheme: USL\n")
                 self.MPMEngine = MPMEngine.USL(self.mpm.Gravity, self.mpm.threshold, self.mpm.partList, self.mpm.gridList, self.mpm.matList)
-                self.MPMLoop = TimeIntegrationMPM.FlowUSL(self.mpm)
+                self.MPMLoop = TimeIntegrationMPM.FlowUSL(self)
             elif ti.static(self.mpm.Algorithm == 2):
                 print("MPM Integration Scheme: MUSL\n")
                 self.MPMEngine = MPMEngine.MUSL(self.mpm.Gravity, self.mpm.threshold, self.mpm.partList, self.mpm.gridList, self.mpm.matList)
-                self.MPMLoop = TimeIntegrationMPM.FlowMUSL(self.mpm)
+                self.MPMLoop = TimeIntegrationMPM.FlowMUSL(self)
             elif ti.static(self.mpm.Algorithm == 3):
                 print("MPM Integration Scheme: undeformed GIMP\n")
                 if ti.static(self.mpm.ShapeFunction != 1): 
                     print("!!ERROR: Shape Function must equal to 1")
                     assert 0
                 self.MPMEngine = MPMEngine.GIMP(self.mpm.Gravity, self.mpm.threshold, self.mpm.partList, self.mpm.gridList, self.mpm.matList)
-                self.MPMLoop = TimeIntegrationMPM.FlowGIMP(self.mpm)
+                self.MPMLoop = TimeIntegrationMPM.FlowGIMP(self)
             elif ti.static(self.mpm.Algorithm == 4):
                 print("MPM Integration Scheme: MLSMPM\n")
                 self.MPMEngine = MPMEngine.MLSMPM(self.mpm.Gravity, self.mpm.threshold, self.mpm.partList, self.mpm.gridList, self.mpm.matList)
-                self.MPMLoop = TimeIntegrationMPM.FlowMLSMPM(self.mpm)
+                self.MPMLoop = TimeIntegrationMPM.FlowMLSMPM(self)
 
             if ti.static(self.dem.Algorithm == 0):
                 print("DEM Integration Scheme: Euler\n")
                 self.DEMEngine = DEMEngine.Euler(self.dem.Gravity, self.dem.Dt[None], self.dem.partList, self.dem.contModel)
-                self.DEMLoop = TimeIntegrationDEM.FlowEuler(self.dem)
+                self.DEMLoop = TimeIntegrationDEM.FlowEuler(self, self.dem)
             elif ti.static(self.dem.Algorithm == 1):
                 print("DEM Integration Scheme: Verlet\n")
                 self.DEMEngine = DEMEngine.Verlet(self.dem.Gravity, self.dem.Dt[None], self.dem.partList, self.dem.contModel)
-                self.DEMLoop = TimeIntegrationDEM.FlowVerlet(self.dem)
+                self.DEMLoop = TimeIntegrationDEM.FlowVerlet(self, self.dem)
 
             self.MainLoop = TimeIntegrationDEMPM.TimeIntegrationDEMPM(self, self.mpm, self.dem, TIME, saveTime, CFL, vtkPath, ascPath, adaptive)
             self.MainLoop.TurnOnSolver(t=0., step=0, printNum=0)

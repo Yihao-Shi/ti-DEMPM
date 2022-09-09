@@ -81,10 +81,10 @@ class NeighborSearchMultiLinkedCell:
         for cellID in range(self.MPMcellSum):
             self.MPMGrainCount[cellID] = 0
 
-        for np in range(self.MPMparticle.particleNum[None]):
-            cellID = self.GetCellID(self.MPMparticle.x[np][0] // self.MPMgridsize, self.MPMparticle.x[np][1] // self.MPMgridsize, self.MPMparticle.x[np][2] // self.MPMgridsize)
+        for np in range(self.MPMpartList.particleNum[None]):
+            cellID = self.GetCellID(self.MPMpartList.x[np][0] // self.MPMgridsize, self.MPMpartList.x[np][1] // self.MPMgridsize, self.MPMpartList.x[np][2] // self.MPMgridsize)
             self.MPMGrainCount[cellID] += 1
-            self.MPMparticle.cellID[np] = cellID
+            self.MPMpartList.cellID[np] = cellID
 
         for celly in range(self.MPMcnum[1]):
             for cellz in range(self.MPMcnum[2]):
@@ -120,8 +120,8 @@ class NeighborSearchMultiLinkedCell:
                     self.MPMListCur[cellID] = self.MPMListHead[cellID]
                     self.MPMListTail[cellID] = self.MPMPrefixSum[cellID]
 
-        for np in range(self.MPMparticle.particleNum[None]):
-            cellID = self.MPMparticle.cellID[np]
+        for np in range(self.MPMpartList.particleNum[None]):
+            cellID = self.MPMpartList.cellID[np]
             grain_location = ti.atomic_add(self.MPMListCur[cellID], 1)
             self.MPMParticleID[grain_location] = np
 
@@ -129,40 +129,38 @@ class NeighborSearchMultiLinkedCell:
     @ti.kernel
     def BoardSearchP2M(self):
         self.p2m[None] = 0
-        for partMPM in range(self.MPMpartList.particleNum[None]):
-            grid_idx = ti.floor(self.MPMpartList.x[partMPM] / self.DEMgridsize, int)
+        for partDEM in range(self.DEMpartList.particleNum[None]):
+            grid_idx = ti.floor(self.DEMpartList.x[partDEM] / self.MPMgridsize, int)
             extended = ti.ceil(self.SmoothRange / self.MPMgridsize, int)
-            ratio = ti.ceil(self.MPMgridsize / self.DEMgridsize, int)
+            ratio = ti.ceil(self.DEMgridsize / self.MPMgridsize, int)
             neighbor_range = extended + ratio
 
             x_begin = max(grid_idx[0] - neighbor_range, 0)
-            x_end = min(grid_idx[0] + neighbor_range + 1, self.DEMneighborList.cnum[0])
+            x_end = min(grid_idx[0] + neighbor_range + 1, self.MPMcnum[0])
             y_begin = max(grid_idx[1] - neighbor_range, 0)
-            y_end = min(grid_idx[1] + neighbor_range + 1, self.DEMneighborList.cnum[1])
+            y_end = min(grid_idx[1] + neighbor_range + 1, self.MPMcnum[1])
             z_begin = max(grid_idx[2] - neighbor_range, 0)
-            z_end = min(grid_idx[2] + neighbor_range + 1, self.DEMneighborList.cnum[2])
-
-            print(x_begin, x_end, y_begin, y_end, z_begin, z_end, self.DEMgridsize)
+            z_end = min(grid_idx[2] + neighbor_range + 1, self.MPMcnum[2])
 
             for neigh_i in range(x_begin, x_end):
                 for neigh_j in range(y_begin, y_end): 
                     for neigh_k in range(z_begin, z_end): 
                         cellID = self.GetCellID(neigh_i, neigh_j, neigh_k)
-                        '''for p_idx in range(self.DEMneighborList.ListHead[cellID], self.DEMneighborList.ListTail[cellID]):
-                            partDEM = self.DEMneighborList.ParticleID[p_idx]
+                        for p_idx in range(self.MPMListHead[cellID], self.MPMListTail[cellID]):
+                            partMPM = self.MPMParticleID[p_idx]
                             count_pairs = ti.atomic_add(self.p2m[None], 1)
                             self.potentialListP2M[count_pairs].end1 = partDEM
-                            self.potentialListP2M[count_pairs].end2 = partMPM'''
+                            self.potentialListP2M[count_pairs].end2 = partMPM
 
     @ti.kernel
     def FineSearchP2M(self): 
         for p2m in range(self.p2m[None]):
             end1 = self.potentialListP2M[p2m].end1
             end2 = self.potentialListP2M[p2m].end2        
-            pos1 = self.DEMparticle.x[end1]
-            pos2 = self.MPMparticle.x[end2]  
-            rad1 = self.DEMparticle.rad[end1]  
-            rad2 = self.MPMparticle.rad[end2]    
-            if (pos2 - pos1).norm() < rad1 + rad2:                 
+            pos1 = self.DEMpartList.x[end1]
+            pos2 = self.MPMpartList.x[end2]  
+            rad1 = self.DEMpartList.rad[end1]  
+            rad2 = self.MPMpartList.rad[end2]    
+            if (pos2 - pos1).norm() < rad1 + rad2:                
                 self.DEMPMcontPair.Contact(end1, end2, pos1, pos2, rad1, rad2)
 

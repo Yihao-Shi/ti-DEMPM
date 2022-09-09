@@ -30,16 +30,15 @@ class BarrierMethod:
         self.MPMmatList.Mu[MPMmatID] = MPMcontInfo[MPMmatID].Mu
 
     @ti.func
-    def ComputeContactNormalForce(self, matID1, matID2, gapn, norm):
+    def ComputeContactNormalForce(self, ContactPair, nc, matID1, matID2, gapn, norm):
         scalar = EffectiveValue(self.DEMcontModel.scalar[matID1], self.MPMmatList.scalar[matID2])
         rad = ti.min(self.DEMpartList.rad[end1], self.MPMpartList.rad[end2])
-        cnforce = scalar * (gapn_- rad) * (2 * ti.log(gapn / rad) - rad - gapn + 1) 
-        cdnforce = ti.Matrix.zero(float, 3)
-        return cnforce, cdnforce
+        ContactPair.cnforce[nc] = scalar * (gapn_- rad) * (2 * ti.log(gapn / rad) - rad - gapn + 1) 
 
     @ti.func
-    def ComputeContactTangentialForce(self, ContactPair, end1, end2, matID1, matID2, v_rel, norm, cnforce, particle_num):
-        slipLim = ti.min(self.DEMcontModel.slipLim[matID1], self.MPMmatList.slipLim[matID2])
+    def ComputeContactTangentialForce(self, ContactPair, nc, end1, end2, matID1, matID2, v_rel, norm, particle_num):
+        pass
+        '''slipLim = ti.min(self.DEMcontModel.slipLim[matID1], self.MPMmatList.slipLim[matID2])
         vs = v_rel - v_rel.dot(norm) * norm  
         trial_t = vs * self.dt 
         key  = HashValue(end1, particle_num + end2)
@@ -54,7 +53,4 @@ class BarrierMethod:
         sslip = 1
         if trial_t > slipLim:
             sslip = -(trial_t.norm() / slipLim) ** 2 + 2 * (trial_t.norm() / slipLim)
-        ctforce = sslip * fric * Normalize(vs)
-
-        cdsforce = ti.Matrix.zero(float, 3)
-        return ctforce, cdsforce
+        ContactPair.ctforce[nc] = sslip * fric * Normalize(vs)'''

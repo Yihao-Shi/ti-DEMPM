@@ -23,29 +23,27 @@ class PenaltyMethod:
         self.MPMmatList.Mu[MPMmatID] = MPMcontInfo[MPMmatID].Mu
 
     @ti.func
-    def ComputeContactNormalForce(self, matID1, matID2, gapn, norm):
+    def ComputeContactNormalForce(self, ContactPair, nc, matID1, matID2, gapn, norm):
         kn = EffectiveValue(self.DEMcontModel.kn[matID1], self.MPMmatList.kn[matID2])
-        cnforce = kn * gapn * norm
-        cdnforce = ti.Matrix.zero(float, 3)
-        return cnforce, cdnforce
+        ContactPair.cnforce[nc] = kn * gapn * norm
 
     @ti.func
-    def ComputeContactTangentialForce(self, ContactPair, end1, end2, matID1, matID2, v_rel, norm, cnforce, particle_num):
+    def ComputeContactTangentialForce(self, ContactPair, nc, end1, end2, matID1, matID2, v_rel, norm, particle_num):
         ks = EffectiveValue(self.DEMcontModel.ks[matID1], self.MPMmatList.ks[matID2])
         vs = v_rel - v_rel.dot(norm) * norm  
         trial_ft = -ks * vs * self.dt 
-        key  = HashValue(end1, particle_num + end2)
+        key  = ContactPair.HashValue(end1, particle_num + end2)
         for i in range(ContactPair.contactNum0[None]):
             if ContactPair.key[i] == key:
                 ft_ori = ContactPair.RelTranslate[i] - ContactPair.RelTranslate[i].dot(norm) * norm
                 ft_temp = ContactPair.RelTranslate[i].norm() * Normalize(ft_ori)
                 trial_ft = trial_ft + ft_temp
         
-        ctforce = trial_ft 
         miu = ti.min(self.DEMcontModel.Mu[matID1], self.MPMmatList.Mu[matID2])
-        fric = miu * cnforce.norm()
+        fric = miu * ContactPair.cnforce[nc].norm()
         if trial_ft.norm() > fric:
-            ctforce = fric * trial_ft.normalized()
+            ContactPair.ctforce[nc] = fric * trial_ft.normalized()
+        else:
+            ContactPair.ctforce[nc] = trial_ft 
 
-        cdsforce = ti.Matrix.zero(float, 3)
-        return ctforce, cdsforce
+
