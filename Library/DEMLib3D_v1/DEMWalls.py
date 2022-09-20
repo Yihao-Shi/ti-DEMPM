@@ -8,34 +8,42 @@ import math
 
 @ti.data_oriented
 class DEMWall:
-    def __init__(self, max_wall_num):
+    def __init__(self, max_facet_num):
         self.wallNum = ti.field(int, shape=[])
-        self.ID = ti.field(int, max_wall_num)      
-        self.materialID = ti.field(int, max_wall_num)
-        self.isactive = ti.field(int, max_wall_num)
-        self.p1 = ti.Vector.field(3, float, max_wall_num)
-        self.p2 = ti.Vector.field(3, float, max_wall_num)
-        self.p3 = ti.Vector.field(3, float, max_wall_num)
-        self.p4 = ti.Vector.field(3, float, max_wall_num)
-        self.norm = ti.Vector.field(3, float, max_wall_num)
+        self.max_facet_num = max_facet_num
 
-        self.v = ti.Vector.field(3, float, max_wall_num)
-        self.v0 = ti.Vector.field(3, float, max_wall_num)
-        self.av = ti.Vector.field(3, float, max_wall_num)
-        self.av0 = ti.Vector.field(3, float, max_wall_num)
-        self.Fex = ti.Vector.field(3, float, max_wall_num)
-        self.Fc = ti.Vector.field(3, float, max_wall_num)
-        self.Fd = ti.Vector.field(3, float, max_wall_num)
-        self.fixedV = ti.Vector.field(3, int, max_wall_num)
-        self.w = ti.Vector.field(3, float, max_wall_num)
-        self.w0 = ti.Vector.field(3, float, max_wall_num)
-        self.I = ti.Matrix.field(3, 3, float, max_wall_num)
-        self.Td = ti.Vector.field(3, float, max_wall_num)
-        self.Tc = ti.Vector.field(3, float, max_wall_num)
-        self.Tex = ti.Vector.field(3, float, max_wall_num)
-        self.aw = ti.Vector.field(3, float, max_wall_num)
-        self.aw0 = ti.Vector.field(3, float, max_wall_num)
-        self.fixedW = ti.Vector.field(3, int, max_wall_num)
+        def Check():
+            if self.max_facet_num == 0:
+                print("Parameter /max_facet_num/ must be larger than 0")
+                assert 0
+        Check()
+
+        self.ID = ti.field(int, max_facet_num)      
+        self.materialID = ti.field(int, max_facet_num)
+        self.isactive = ti.field(int, max_facet_num)
+        self.p1 = ti.Vector.field(3, float, max_facet_num)
+        self.p2 = ti.Vector.field(3, float, max_facet_num)
+        self.p3 = ti.Vector.field(3, float, max_facet_num)
+        self.p4 = ti.Vector.field(3, float, max_facet_num)
+        self.norm = ti.Vector.field(3, float, max_facet_num)
+
+        self.v = ti.Vector.field(3, float, max_facet_num)
+        self.v0 = ti.Vector.field(3, float, max_facet_num)
+        self.av = ti.Vector.field(3, float, max_facet_num)
+        self.av0 = ti.Vector.field(3, float, max_facet_num)
+        self.Fex = ti.Vector.field(3, float, max_facet_num)
+        self.Fc = ti.Vector.field(3, float, max_facet_num)
+        self.Fd = ti.Vector.field(3, float, max_facet_num)
+        self.fixedV = ti.Vector.field(3, int, max_facet_num)
+        self.w = ti.Vector.field(3, float, max_facet_num)
+        self.w0 = ti.Vector.field(3, float, max_facet_num)
+        self.I = ti.Matrix.field(3, 3, float, max_facet_num)
+        self.Td = ti.Vector.field(3, float, max_facet_num)
+        self.Tc = ti.Vector.field(3, float, max_facet_num)
+        self.Tex = ti.Vector.field(3, float, max_facet_num)
+        self.aw = ti.Vector.field(3, float, max_facet_num)
+        self.aw0 = ti.Vector.field(3, float, max_facet_num)
+        self.fixedW = ti.Vector.field(3, int, max_facet_num)
 
     def WallDeactivated(self, wallID):
         self.isactive[wallID] = 0

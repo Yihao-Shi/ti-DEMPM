@@ -27,10 +27,6 @@ class ContactPairs:
         self.contModel = contModel
 
     @ti.func
-    def HashValue(self, i, j):
-        return int((i + j) * (i + j + 1) / 2. + j)
-
-    @ti.func
     def ResetContactList(self, nc):
         self.endID1[nc] = -1
         self.endID2[nc] = -1
@@ -44,10 +40,10 @@ class ContactPairs:
 
     @ti.func
     def ResetFtIntegration(self, nc):
-        if nc < self.contactNum0[None]:
-            self.key[nc] = self.HashValue(self.TYPE[nc] * self.partList.particleNum[None] + self.endID1[nc], self.endID2[nc])
+        if nc < self.contactNum[None]:
+            self.key[nc] = HashValue(self.TYPE[nc] * self.partList.particleNum[None] + self.endID1[nc], self.endID2[nc])
             self.RelTranslate[nc] = self.ctforce[nc]
-        elif self.contactNum0[None] <= nc < self.contactNum[None]:
+        elif self.contactNum[None] <= nc < self.contactNum0[None]:
             self.key[nc] = -1
             self.RelTranslate[nc] = ti.Matrix.zero(float, 3)
 
@@ -181,23 +177,23 @@ class LinearRollingResistance(Linear):
     def __init__(self, max_contact_num, partcleList, wallList, contModel):
         print("Contact Model: Linear Rolling Resistance Contact Model\n")
         super().__init__(max_contact_num, partcleList, wallList, contModel)
-        self.Tr = ti.Vector.field(3, float, shape=(max_contact_num,))
-        self.Tt = ti.Vector.field(3, float, shape=(max_contact_num,))
+        self.Fr = ti.Vector.field(3, float, shape=(max_contact_num,))
+        self.Ft = ti.Vector.field(3, float, shape=(max_contact_num,))
         self.RelRolling = ti.Vector.field(3, float, shape=(max_contact_num,))
-        self.RelTwist = ti.field(float, shape=(max_contact_num,))
+        self.RelTwist = ti.Vector.field(3, float, shape=(max_contact_num,))
 
     @ti.func
     def ResetFtIntegration(self, nc):
-        if nc < self.contactNum0[None]:
-            self.key[nc] = self.HashValue(self.TYPE[nc] * self.partList.particleNum[None] + self.endID1[nc], self.endID2[nc])
+        if nc < self.contactNum[None]:
+            self.key[nc] = HashValue(self.TYPE[nc] * self.partList.particleNum[None] + self.endID1[nc], self.endID2[nc])
             self.RelTranslate[nc] = self.ctforce[nc]
-            self.RelRolling[nc] = self.Tr[nc]
-            self.RelTwist[nc] = self.Tt[nc].norm()
-        elif self.contactNum0[None] <= nc < self.contactNum[None]:
+            self.RelRolling[nc] = self.Fr[nc]
+            self.RelTwist[nc] = self.Ft[nc]
+        elif self.contactNum[None] <= nc < self.contactNum0[None]:
             self.key[nc] = -1
             self.RelTranslate[nc] = ti.Matrix.zero(float, 3)
             self.RelRolling[nc] = ti.Matrix.zero(float, 3)
-            self.RelTwist[nc] = 0.
+            self.RelTwist[nc] = ti.Matrix.zero(float, 3)
 
     @ti.func
     def ForceAssemble(self, nc, end1, end2, matID1, matID2, cpos):
@@ -229,7 +225,7 @@ class LinearRollingResistance(Linear):
         self.contModel.ComputeTorsionFriction(self, nc, matID1, matID2, w1, w2, m_eff, rad_eff, self.partList.particleNum[None])
 
         Ftotal = self.cnforce[nc] + self.ctforce[nc]
-        Ttotal = self.Tr[nc] + self.Tt[nc]
+        Ttotal = rad_eff * self.norm[nc].cross(self.Fr[nc]) + rad_eff * self.Ft[nc]
         if self.TYPE[nc] == 0:
             self.partList.Fc[end1] += Ftotal
             self.partList.Tc[end1] += Ftotal.cross(self.partList.x[end1] - cpos) + Ttotal

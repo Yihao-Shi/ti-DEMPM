@@ -101,3 +101,8 @@ def NonNegative(x):
 @ti.func
 def xor(a, b):
     return (a + b) & 1
+
+
+@ti.func
+def HashValue(i, j):
+    return int((i + j) * (i + j + 1) / 2. + j)
