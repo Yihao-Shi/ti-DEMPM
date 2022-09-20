@@ -1,181 +1,298 @@
-import MPMLib2D_v1.Graphic as graphic
-import MPMLib2D_v1.Spying as spy
-import MPMLib2D_v1.InterpolationUSF as USF
-import MPMLib2D_v1.InterpolationUSL as USL
-import MPMLib2D_v1.InterpolationMUSL as MUSL
-import MPMLib2D_v1.InterpolationGIMP as GIMP
-import MPMLib2D_v1.InterpolationMLSMPM as MLSMPM
+import taichi as ti
+import MPMLib3D_v1.Graphic as Graphic
+import MPMLib3D_v1.Spying as Spy
 import time
 
 
-def Output(t, step, printNum, mpm, start, vtkPath, ascPath):
-    print('-------------------------- Time Step = ', step, '---------------------------')
-    print('Simulation time = ', t)
-    print('Time step = ', mpm.Dt[None])
-    print('Physical time = ', time.time() - start)
-    graphic.WriteFileVTK_MPM(mpm.lp, mpm.lg, printNum, vtkPath)
-    spy.MonitorMPM(mpm.lp, printNum, ascPath)
-    print('------------------------------ Running ---------------------------------')
+@ti.data_oriented
+class TimeIntegrationMPM:
+    def __init__(self, mpm, TIME, saveTime, CFL, vtkPath, ascPath, adaptive):
+        self.mpm = mpm
+        self.TIME = TIME
+        self.saveTime = saveTime
+        self.CFL = CFL
+        self.vtkPath = vtkPath
+        self.ascPath = ascPath
+        self.adaptive = adaptive
 
+    def TurnOnSolver(self, t, step, printNum):
+        self.t = t
+        self.step = step
+        self.printNum = printNum
 
-# Solvers
-def Solver(mpm, TIME, saveTime, CFL, vtkPath, ascPath, adaptive):
-    if mpm.Algorithm == 0:
-        SolverUSF(mpm, TIME, saveTime, CFL, vtkPath, ascPath, adaptive)
-    elif mpm.Algorithm == 1:
-        SolverUSL(mpm, TIME, saveTime, CFL, vtkPath, ascPath, adaptive)
-    elif mpm.Algorithm == 2:
-        SolverMUSL(mpm, TIME, saveTime, CFL, vtkPath, ascPath, adaptive)
-    elif mpm.Algorithm == 3:
-        SolverGIMP(mpm, TIME, saveTime, CFL, vtkPath, ascPath, adaptive)
-    elif mpm.Algorithm == 4:
-        SolverMLSMPM(mpm, TIME, saveTime, CFL, vtkPath, ascPath, adaptive)
+    def FinalizeSolver(self):
+        self.t = 0.
+        self.step = 0
+        self.printNum = 0
+
+    def UpdateSolver(self, TIME, saveTime, CFL, vtkPath, ascPath, adaptive):
+        self.TIME = TIME
+        self.saveTime = saveTime
+        self.CFL = CFL
+        self.vtkPath = vtkPath
+        self.ascPath = ascPath
+        self.adaptive = adaptive
+
+    def Output(self, start):
+        print('# Step = ', self.step, '     ', 'Simulation time = ', self.t, '\n')
+        Graphic.WriteFileVTK_MPM(self.mpm.partList, self.mpm.gridList, self.printNum, self.vtkPath)
+        Spy.MonitorMPM(self.t, self.mpm.partList, self.printNum, self.ascPath)
 
 
 #  ------------------------------------------ DMPM --------------------------------------------- #
-def SolverUSF(mpm, TIME, saveTime, CFL, vtkPath, ascPath, adaptive):
-    t, step, printNum = 0., 0, 0
-    start = time.time()
-    while t <= TIME:
-        if t == 0:
-            Output(t, step, printNum, mpm, start, vtkPath, ascPath)
-            printNum += 1
-            
-        USF.GridReset(mpm)
-        USF.ParticleToGrid_Momentum(mpm)
-        USF.GridVelocity(mpm)
-        USF.UpdateStressStrain(mpm)
-        USF.ParticleToGrid_Force(mpm)
-        USF.GridMomentum(mpm)
-        USF.GridToParticle(mpm)
-
-        if t % saveTime < mpm.Dt[None]:
-            Output(t, step, printNum, mpm, start, vtkPath, ascPath)
-            printNum += 1
-
-        t += mpm.Dt[None]
-        step += 1
-
-        for nb in range(mpm.BodyInfo.shape[0]):
-            if t % mpm.BodyInfo[nb].DT[1] < mpm.Dt[None] and mpm.BodyInfo[nb].DT[0] <= t <= mpm.BodyInfo[nb].DT[2]:
-                mpm.AddParticlesInRun(nb)
-        if adaptive:
-            mpm.AdaptiveTimeScheme(CFL)
+@ti.data_oriented
+class SolverUSF(TimeIntegrationMPM):
+    def __init__(self, mpm, TIME, saveTime, CFL, vtkPath, ascPath, adaptive):
+        super().__init__(mpm, TIME, saveTime, CFL, vtkPath, ascPath, adaptive)
 
 
-def SolverUSL(mpm, TIME, saveTime, CFL, vtkPath, ascPath, adaptive):
-    t, step, printNum = 0., 0, 0
-    start = time.time()
-    while t <= TIME:
-        if t == 0:
-            Output(t, step, printNum, mpm, start, vtkPath, ascPath)
-            printNum += 1
+    def Solver(self):
+        start = time.time()
+        while self.t <= self.TIME:
+            if self.t == 0:
+                self.Output(start)
+                self.printNum += 1
+                
+            self.mpm.Engine.GridReset()
+            self.mpm.Engine.ParticleToGrid_Momentum()
+            self.mpm.Engine.GridVelocity()
+            self.mpm.Engine.UpdateStressStrain()
+            self.mpm.Engine.ParticleToGrid_Force()
+            self.mpm.Engine.GridMomentum()
+            self.mpm.Engine.GridToParticle()
 
-        USL.GridReset(mpm)
-        USL.ParticleToGrid_Momentum(mpm)
-        USL.ParticleToGrid_Force(mpm)
-        USL.GridMomentum(mpm)
-        USL.GridToParticle(mpm)
-        USL.UpdateStressStrain(mpm)
+            if self.saveTime - self.t % self.saveTime < self.mpm.Dt[None]:
+                self.Output(start)
+                self.printNum += 1
 
-        if t % saveTime < mpm.Dt[None]:
-            Output(t, step, printNum, mpm, start, vtkPath, ascPath)
-            printNum += 1
+            self.mpm.Engine.Reset()
 
-        t += mpm.Dt[None]
-        step += 1
+            self.t += self.mpm.Dt[None]
+            self.step += 1
 
-        for nb in range(mpm.BodyInfo.shape[0]):
-            if t % mpm.BodyInfo[nb].DT[1] < mpm.Dt[None] and mpm.BodyInfo[nb].DT[0] <= t <= mpm.BodyInfo[nb].DT[2]:
-                mpm.AddParticlesInRun(nb)
-        if adaptive:
-            mpm.AdaptiveTimeScheme(CFL)
+            self.mpm.AddParticlesInRun(self.t)
+            if self.adaptive: self.mpm.AdaptiveTimeScheme(self.CFL)
 
+        print('Physical time = ', time.time() - start)
+
+@ti.data_oriented
+class SolverUSL(TimeIntegrationMPM):
+    def __init__(self, mpm, TIME, saveTime, CFL, vtkPath, ascPath, adaptive):
+        super().__init__(mpm, TIME, saveTime, CFL, vtkPath, ascPath, adaptive)
 
 
-def SolverMUSL(mpm, TIME, saveTime, CFL, vtkPath, ascPath, adaptive):
-    t, step, printNum = 0., 0, 0
-    start = time.time()
-    while t <= TIME:
-        if t == 0:
-            Output(t, step, printNum, mpm, start, vtkPath, ascPath)
-            printNum += 1
+    def Solver(self):
+        start = time.time()
+        while self.t <= self.TIME:
+            if self.t == 0:
+                self.Output(start)
+                self.printNum += 1
 
-        MUSL.GridReset(mpm)
-        MUSL.ParticleToGrid_Momentum(mpm)
-        MUSL.ParticleToGrid_Force(mpm)
-        MUSL.GridMomentum(mpm)
-        MUSL.GridToParticle(mpm)
-        MUSL.NodalMomentumMUSL(mpm)
-        MUSL.UpdateStressStrain(mpm)
+            self.mpm.Engine.GridReset()
+            self.mpm.Engine.ParticleToGrid_Momentum()
+            self.mpm.Engine.ParticleToGrid_Force()
+            self.mpm.Engine.GridMomentum()
+            self.mpm.Engine.GridToParticle()
+            self.mpm.Engine.UpdateStressStrain()
 
-        if t % saveTime < mpm.Dt[None]:
-            Output(t, step, printNum, mpm, start, vtkPath, ascPath)
-            printNum += 1
+            if self.saveTime - self.t % self.saveTime < self.mpm.Dt[None]:
+                self.Output(start)
+                self.printNum += 1
 
-        t += mpm.Dt[None]
-        step += 1
+            self.mpm.Engine.Reset()
 
-        for nb in range(mpm.BodyInfo.shape[0]):
-            if t % mpm.BodyInfo[nb].DT[1] < mpm.Dt[None] and mpm.BodyInfo[nb].DT[0] <= t <= mpm.BodyInfo[nb].DT[2]:
-                mpm.AddParticlesInRun(nb)
-        if adaptive:
-            mpm.AdaptiveTimeScheme(CFL)
+            self.t += self.mpm.Dt[None]
+            self.step += 1
+
+            self.mpm.AddParticlesInRun(self.t)
+            if self.adaptive: self.mpm.AdaptiveTimeScheme(self.CFL)
+
+        print('Physical time = ', time.time() - start)
+
+
+@ti.data_oriented
+class SolverMUSL(TimeIntegrationMPM):
+    def __init__(self, mpm, TIME, saveTime, CFL, vtkPath, ascPath, adaptive):
+        super().__init__(mpm, TIME, saveTime, CFL, vtkPath, ascPath, adaptive)
+
+
+    def Solver(self):
+        start = time.time()
+        while self.t <= self.TIME:
+            if self.t == 0:
+                self.Output(start)
+                self.printNum += 1
+
+            self.mpm.Engine.GridReset()
+            self.mpm.Engine.ParticleToGrid_Momentum()
+            self.mpm.Engine.ParticleToGrid_Force()
+            self.mpm.Engine.GridMomentum()
+            self.mpm.Engine.GridToParticle()
+            self.mpm.Engine.NodalMomentumMUSL()
+            self.mpm.Engine.UpdateStressStrain()
+
+            if self.saveTime - self.t % self.saveTime < self.mpm.Dt[None]:
+                self.Output(start)
+                self.printNum += 1
+
+            self.mpm.Engine.Reset()
+
+            self.t += self.mpm.Dt[None]
+            self.step += 1
+
+            self.mpm.AddParticlesInRun(self.t)
+            if self.adaptive: self.mpm.AdaptiveTimeScheme(self.CFL)
+
+        print('Physical time = ', time.time() - start)
 
 
 #  ------------------------------------------ GIMP --------------------------------------------- #
-def SolverGIMP(mpm, TIME, saveTime, CFL, vtkPath, ascPath, adaptive):
-    t, step, printNum = 0., 0, 0
-    start = time.time()
-    while t <= TIME:
-        if t == 0:
-            Output(t, step, printNum, mpm, start, vtkPath, ascPath)
-            printNum += 1
-        
-        GIMP.GridReset(mpm)
-        GIMP.ParticleToGrid_Momentum(mpm)
-        GIMP.ParticleToGrid_Force(mpm)
-        GIMP.GridMomentum(mpm)
-        GIMP.GridToParticle(mpm)
-        GIMP.UpdateStressStrain(mpm)
-
-        if t % saveTime < mpm.Dt[None]:
-            Output(t, step, printNum, mpm, start, vtkPath, ascPath)
-            printNum += 1
+@ti.data_oriented
+class SolverGIMP(TimeIntegrationMPM):
+    def __init__(self, mpm, TIME, saveTime, CFL, vtkPath, ascPath, adaptive):
+        super().__init__(mpm, TIME, saveTime, CFL, vtkPath, ascPath, adaptive)
 
 
-        t += mpm.Dt[None]
-        step += 1
+    def Solver(self):
+        start = time.time()
+        while self.t <= self.TIME:
+            if self.t == 0:
+                self.Output(start)
+                self.printNum += 1
+            
+            self.mpm.Engine.GridReset()
+            self.mpm.Engine.ParticleToGrid_Momentum()
+            self.mpm.Engine.ParticleToGrid_Force()
+            self.mpm.Engine.GridMomentum()
+            self.mpm.Engine.GridToParticle()
+            self.mpm.Engine.UpdateStressStrain()
 
-        for nb in range(mpm.BodyInfo.shape[0]):
-            if t % mpm.BodyInfo[nb].DT[1] < mpm.Dt[None] and mpm.BodyInfo[nb].DT[0] <= t <= mpm.BodyInfo[nb].DT[2]:
-                mpm.AddParticlesInRun(nb)
-        if adaptive:
-            mpm.AdaptiveTimeScheme(CFL)
+            if self.saveTime - self.t % self.saveTime < self.mpm.Dt[None]:
+                self.Output(start)
+                self.printNum += 1
+
+            self.mpm.Engine.Reset()
+
+            self.t += self.mpm.Dt[None]
+            self.step += 1
+
+            self.mpm.AddParticlesInRun(self.t)
+            if self.adaptive: self.mpm.AdaptiveTimeScheme(self.CFL)
+
+        print('Physical time = ', time.time() - start)
 
 
 #  ----------------------------------------- MLS-MPM -------------------------------------------- #
-def SolverMLSMPM(mpm, TIME, saveTime, CFL, vtkPath, ascPath, adaptive):
-    t, step, printNum = 0., 0, 0
-    start = time.time()
-    while t <= TIME:
-        if t == 0:
-            Output(t, step, printNum, mpm, start, vtkPath, ascPath)
-            printNum += 1
-        
-        MLSMPM.ParticleToGridAPIC(mpm)
-        MLSMPM.GridOperationAPIC(mpm)
-        MLSMPM.GridToParticleAPIC(mpm)
+@ti.data_oriented
+class SolverMLSMPM(TimeIntegrationMPM):
+    def __init__(self, mpm, TIME, saveTime, CFL, vtkPath, ascPath, adaptive):
+        super().__init__(mpm, TIME, saveTime, CFL, vtkPath, ascPath, adaptive)
 
-        if t % saveTime < mpm.Dt[None]:
-            Output(t, step, printNum, mpm, start, vtkPath, ascPath)
-            printNum += 1
 
-        t += mpm.Dt[None]
-        step += 1
+    def Solver(self):
+        start = time.time()
+        while self.t <= self.TIME:
+            if self.t == 0:
+                self.Output(start)
+                self.printNum += 1
+            
+            self.mpm.Engine.ParticleToGridAPIC()
+            self.mpm.Engine.GridOperationAPIC()
+            self.mpm.Engine.GridToParticleAPIC()
 
-        for nb in range(mpm.BodyInfo.shape[0]):
-            if t % mpm.BodyInfo[nb].DT[1] < mpm.Dt[None] and mpm.BodyInfo[nb].DT[0] <= t <= mpm.BodyInfo[nb].DT[2]:
-                mpm.AddParticlesInRun(nb)
-        if adaptive:
-            mpm.AdaptiveTimeScheme(CFL)
+            if self.saveTime - self.t % self.saveTime < self.mpm.Dt[None]:
+                self.Output(start)
+                self.printNum += 1
+
+            self.mpm.Engine.Reset()
+
+            self.t += self.mpm.Dt[None]
+            self.tep += 1
+
+            self.mpm.AddParticlesInRun(self.t)
+            if self.adaptive: self.mpm.AdaptiveTimeScheme(self.CFL)
+
+        print('Physical time = ', time.time() - start)
+
+
+@ti.data_oriented
+class SolverMPDEM:
+    def __init__(self, dempm):
+        self.dempm = dempm
+
+    def Flow(self):
+        pass
+
+
+@ti.data_oriented
+class FlowUSF(SolverMPDEM):
+    def __init__(self, dempm):
+        super().__init__(dempm)
+
+    def Flow(self):
+        self.dempm.MPMEngine.GridReset()
+        self.dempm.MPMEngine.ParticleToGrid_Momentum()
+        self.dempm.MPMEngine.GridVelocity()
+        self.dempm.MPMEngine.UpdateStressStrain()
+        self.dempm.MPMEngine.ParticleToGrid_Force()
+        self.dempm.MPMEngine.GridMomentum()
+        self.dempm.MPMEngine.GridToParticle()
+
+
+@ti.data_oriented
+class FlowUSL(SolverMPDEM):
+    def __init__(self, dempm):
+        super().__init__(dempm)
+
+
+    def Flow(self):
+        self.dempm.MPMEngine.GridReset()
+        self.dempm.MPMEngine.ParticleToGrid_Momentum()
+        self.dempm.MPMEngine.ParticleToGrid_Force()
+        self.dempm.MPMEngine.GridMomentum()
+        self.dempm.MPMEngine.GridToParticle()
+        self.dempm.MPMEngine.UpdateStressStrain()
+
+
+@ti.data_oriented
+class FlowMUSL(SolverMPDEM):
+    def __init__(self, dempm):
+        super().__init__(dempm)
+
+
+    def Flow(self):
+        self.dempm.MPMEngine.GridReset()
+        self.dempm.MPMEngine.ParticleToGrid_Momentum()
+        self.dempm.MPMEngine.ParticleToGrid_Force()
+        self.dempm.MPMEngine.GridMomentum()
+        self.dempm.MPMEngine.GridToParticle()
+        self.dempm.MPMEngine.NodalMomentumMUSL()
+        self.dempm.MPMEngine.UpdateStressStrain()
+
+
+@ti.data_oriented
+class FlowGIMP(SolverMPDEM):
+    def __init__(self, dempm):
+        super().__init__(dempm)
+
+
+    def Flow(self):
+        self.dempm.MPMEngine.GridReset()
+        self.dempm.MPMEngine.ParticleToGrid_Momentum()
+        self.dempm.MPMEngine.ParticleToGrid_Force()
+        self.dempm.MPMEngine.GridMomentum()
+        self.dempm.MPMEngine.GridToParticle()
+        self.dempm.MPMEngine.UpdateStressStrain()
+
+
+@ti.data_oriented
+class FlowMLSMPM(SolverMPDEM):
+    def __init__(self, dempm):
+        super().__init__(dempm)
+
+
+    def Flow(self):
+        self.dempm.MPMEngine.ParticleToGridAPIC()
+        self.dempm.MPMEngine.GridOperationAPIC()
+        self.dempm.MPMEngine.GridToParticleAPIC()
+

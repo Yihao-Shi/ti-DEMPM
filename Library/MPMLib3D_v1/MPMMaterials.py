@@ -5,6 +5,7 @@ import math
 @ti.data_oriented
 class MaterialList:
     def __init__(self, max_material_num):
+        self.max_material_num = int(max_material_num)
         self.matType = ti.field(int, max_material_num)                               # Material type
         self.young = ti.field(float, max_material_num)                               # Young's modulus
         self.Ep = ti.field(float, max_material_num)                                  # Plastic Modulus
@@ -30,19 +31,15 @@ class MaterialList:
         self.I0 = ti.field(float, max_material_num)                                  # Rheology parameters
         self.diamp = ti.field(float, max_material_num)                               # Particle diatmeter
 
-    def MPMCoupling(self, max_material_num):
-        self.kn_c = ti.field(float, max_material_num)
-        self.kt_c = ti.field(float, max_material_num)
-        self.kapa_c = ti.field(float, max_material_num)
-        self.mu_c = ti.field(float, max_material_num)
-
-    @ti.func
-    def MPMCouplingInit(self, nc, contInfo):
-        bodyID = contInfo[nc].MPMBody
-        self.kn_c[bodyID] = contInfo[nc].Kn
-        self.kt_c[bodyID] = contInfo[nc].Kt
-        self.kapa_c[bodyID] = contInfo[nc].kapa
-        self.mu_c[bodyID] = contInfo[nc].Mu
+    def DEMPMPenaltyMethod(self):
+        self.kn = ti.field(float, shape=(self.max_material_num,))
+        self.ks = ti.field(float, shape=(self.max_material_num,))
+        self.Mu = ti.field(float, shape=(self.max_material_num,))
+        
+    def DEMPMBarrierMethod(self):
+        self.scalar = ti.field(float, shape=(self.max_material_num,))
+        self.slipLim = ti.field(float, shape=(self.max_material_num,))
+        self.Mu = ti.field(float, shape=(self.max_material_num,))
 
     # Set Material Parameters
     @ti.kernel

@@ -3,7 +3,7 @@ import taichi as ti
 
 @ti.func
 def Normalize(mv):
-    mv_normalize = ti.Vector([0., 0.])
+    mv_normalize = ti.Vector([0., 0., 0.])
     if not mv.norm() == 0:
         mv_normalize = mv.normalized()
     return mv_normalize
@@ -11,10 +11,20 @@ def Normalize(mv):
 
 @ti.func
 def sign(x):
-    a = -1
     if x >= 0:
-        a = 1
-    return a
+        x = 1
+    else: x = -1
+    return x
+
+@ti.func
+def sgn(x):
+    if x >= 0:
+        x = 1
+    elif x == 0:
+        x = 0
+    elif x <= 0:
+        x = -1
+    return x
 
 
 @ti.func
@@ -65,7 +75,7 @@ def Min(i, j):
 
 @ti.func
 def Diagonal(vec):
-    return ti.Matrix([[vec[0], 0], [0, vec[1]]])
+    return ti.Matrix([[vec[0], 0, 0], [0, vec[1], 0], [0, 0, vec[2]]])
 
 
 def GreatestPowderOfTwo(length):
@@ -94,13 +104,5 @@ def xor(a, b):
 
 
 @ti.func
-def isnan(x):
-    flag = 0
-    if not all(x >= 0 or x < 0):
-        flag = 1
-    return flag
-
-
-@ti.func
-def Clamp(minval, maxval, val):
-    return ti.min(ti.max(val, minval), maxval)
+def HashValue(i, j):
+    return int((i + j) * (i + j + 1) / 2. + j)

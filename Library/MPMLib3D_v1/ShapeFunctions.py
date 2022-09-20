@@ -1,5 +1,5 @@
 import taichi as ti
-from MPMLib2D_v1.Function import *
+from MPMLib3D_v1.Function import *
 
 
 # ---------------------------------------------- GIMP ------------------------------------------------ #
@@ -67,40 +67,40 @@ def ShapeGIMPCenter(xp, xg, dx, lp):
 # Used for tranditional GIMP
 @ti.func
 def GIMP1(xp, xg, dx, lp):
-    SF0, SF1 = ShapeGIMP(xp[0], xg[0], dx[0], lp[0]), ShapeGIMP(xp[1], xg[1], dx[1], lp[1])
-    GS0, GS1 = GShapeGIMP(xp[0], xg[0], dx[0], lp[0]), GShapeGIMP(xp[1], xg[1], dx[1], lp[1])
+    SF0, SF1, SF2 = ShapeGIMP(xp[0], xg[0], dx[0], lp[0]), ShapeGIMP(xp[1], xg[1], dx[1], lp[1]), ShapeGIMP(xp[2], xg[2], dx[2], lp[2])
+    GS0, GS1, GS2 = GShapeGIMP(xp[0], xg[0], dx[0], lp[0]), GShapeGIMP(xp[1], xg[1], dx[1], lp[1]), GShapeGIMP(xp[2], xg[2], dx[2], lp[2])
 
-    SF = SF0 * SF1
-    GS = ti.Vector([GS0 * SF1, SF0 * GS1]).cast(float)
+    SF = SF0 * SF1 * SF2
+    GS = ti.Vector([GS0 * SF1 * SF2, SF0 * GS1 * SF2, SF0 * SF1 * GS2]).cast(float)
     return SF, GS
 
 
 # Used for Anti-Locking GIMP (B-Bar)
 @ti.func
 def GIMP2(xp, xg, dx, lp):
-    SF0, SF1 = ShapeGIMP(xp[0], xg[0], dx[0], lp[0]), ShapeGIMP(xp[1], xg[1], dx[1], lp[1])
-    GS0, GS1 = GShapeGIMP(xp[0], xg[0], dx[0], lp[0]), GShapeGIMP(xp[1], xg[1], dx[1], lp[1])
-    SFC0, SFC1 = ShapeGIMPCenter(xp[0], xg[0], dx[0], lp[0]), ShapeGIMPCenter(xp[1], xg[1], dx[1], lp[1])
+    SF0, SF1, SF2 = ShapeGIMP(xp[0], xg[0], dx[0], lp[0]), ShapeGIMP(xp[1], xg[1], dx[1], lp[1]), ShapeGIMP(xp[2], xg[2], dx[2], lp[2])
+    GS0, GS1, GS2 = GShapeGIMP(xp[0], xg[0], dx[0], lp[0]), GShapeGIMP(xp[1], xg[1], dx[1], lp[1]), GShapeGIMP(xp[2], xg[2], dx[2], lp[2])
+    SFC0, SFC1, SFC2 = ShapeGIMPCenter(xp[0], xg[0], dx[0], lp[0]), ShapeGIMPCenter(xp[1], xg[1], dx[1], lp[1]), ShapeGIMPCenter(xp[2], xg[2], dx[2], lp[2])
 
-    SF = SF0 * SF1
-    GS = ti.Vector([GS0 * SF1, SF0 * GS1]).cast(float)
-    GSC = ti.Vector([GS0 * SFC1, SFC0 * GS1]).cast(float)
+    SF = SF0 * SF1 * SF2
+    GS = ti.Vector([GS0 * SF1 * SF2, SF0 * GS1 * SF2, SF0 * SF1 * GS2]).cast(float)
+    GSC = ti.Vector([GS0 * SFC1 * SFC2, SFC0 * GS1 * SFC2, SFC0 * SFC1 * GS2]).cast(float)
     return SF, GS, GSC
 
 
 # Used for Anti-Locking GIMP (Fluid)
 @ti.func
 def GIMP3(xp, xg, dx, lp):
-    SF0, SF1 = ShapeGIMP(xp[0], xg[0], dx[0], lp[0]), ShapeGIMP(xp[1], xg[1], dx[1], lp[1])
-    GS0, GS1 = GShapeGIMP(xp[0], xg[0], dx[0], lp[0]), GShapeGIMP(xp[1], xg[1], dx[1], lp[1])
-    SFC0, SFC1 = ShapeGIMPCenter(xp[0], xg[0], dx[0], lp[0]), ShapeGIMPCenter(xp[1], xg[1], dx[1], lp[1])
+    SF0, SF1, SF2 = ShapeGIMP(xp[0], xg[0], dx[0], lp[0]), ShapeGIMP(xp[1], xg[1], dx[1], lp[1]), ShapeGIMP(xp[2], xg[2], dx[2], lp[2])
+    GS0, GS1, GS2 = GShapeGIMP(xp[0], xg[0], dx[0], lp[0]), GShapeGIMP(xp[1], xg[1], dx[1], lp[1]), GShapeGIMP(xp[2], xg[2], dx[2], lp[2])
+    SFC0, SFC1, SFC2 = ShapeGIMPCenter(xp[0], xg[0], dx[0], lp[0]), ShapeGIMPCenter(xp[1], xg[1], dx[1], lp[1]), ShapeGIMPCenter(xp[2], xg[2], dx[2], lp[2])
 
-    SF = SF0 * SF1
-    GSC = ti.Vector([GS0 * SFC1, SFC0 * GS1]).cast(float)
+    SF = SF0 * SF1 * SF2
+    GSC = ti.Vector([GS0 * SFC1 * SFC2, SFC0 * GS1 * SFC2, SFC0 * SFC1 * GS2]).cast(float)
     return SF, GSC
 
 
-# ------------------------------------------- B-spline ---------------------------------------------- #
+# ------------------------------------------- B-Spline ---------------------------------------------- #
 # ========================================================= #
 #                                                           #
 #                  Linear shape function                    #
@@ -132,37 +132,37 @@ def ShapeLinearCenter():
 # Used for Classical MPM
 @ti.func
 def Linear1(xp, xg, dx):
-    SF0, SF1 = ShapeLinear(xp[0], xg[0], dx[0]), ShapeLinear(xp[1], xg[1], dx[1])
-    GS0, GS1 = GShapeLinear(xp[0], xg[0], dx[0]), GShapeLinear(xp[1], xg[1], dx[1])
+    SF0, SF1, SF2 = ShapeLinear(xp[0], xg[0], dx[0]), ShapeLinear(xp[1], xg[1], dx[1]), ShapeLinear(xp[2], xg[2], dx[2])
+    GS0, GS1, GS2 = GShapeLinear(xp[0], xg[0], dx[0]), GShapeLinear(xp[1], xg[1], dx[1]), GShapeLinear(xp[2], xg[2], dx[2])
 
-    SF = SF0 * SF1
-    GS = ti.Vector([GS0 * SF1, SF0 * GS1]).cast(float)
+    SF = SF0 * SF1 * SF2
+    GS = ti.Vector([GS0 * SF1 * SF2, SF0 * GS1 * SF2, SF0 * SF1 * GS2]).cast(float)
     return SF, GS
 
 
 # Used for Anti-Locking Classical MPM (B-Bar)
 @ti.func
 def Linear2(xp, xg, dx):
-    SF0, SF1 = ShapeLinear(xp[0], xg[0], dx[0]), ShapeLinear(xp[1], xg[1], dx[1])
-    GS0, GS1 = GShapeLinear(xp[0], xg[0], dx[0]), GShapeLinear(xp[1], xg[1], dx[1])
-    SFC0, SFC1 = ShapeLinearCenter(), ShapeLinearCenter()
+    SF0, SF1, SF2 = ShapeLinear(xp[0], xg[0], dx[0]), ShapeLinear(xp[1], xg[1], dx[1]), ShapeLinear(xp[2], xg[2], dx[2])
+    GS0, GS1, GS2 = GShapeLinear(xp[0], xg[0], dx[0]), GShapeLinear(xp[1], xg[1], dx[1]), GShapeLinear(xp[2], xg[2], dx[2])
+    SFC0, SFC1, SFC2 = ShapeLinearCenter(), ShapeLinearCenter(), ShapeLinearCenter()
 
-    SF = SF0 * SF1
-    GS = ti.Vector([GS0 * SF1, SF0 * GS1]).cast(float) 
-    GSC = ti.Vector([GS0 * SFC1, SFC0 * GS1]).cast(float)
+    SF = SF0 * SF1 * SF2
+    GS = ti.Vector([GS0 * SF1 * SF2, SF0 * GS1 * SF2, SF0 * SF1 * GS2]).cast(float)
+    GSC = ti.Vector([GS0 * SFC1 * SFC2, SFC0 * GS1 * SFC2, SFC0 * SFC1 * GS2]).cast(float)
     return SF, GS, GSC
 
 
 # Used for Anti-Locking Classical MPM (Fluid)
 @ti.func
 def Linear3(xp, xg, dx):
-    SF0, SF1 = ShapeLinear(xp[0], xg[0], dx[0]), ShapeLinear(xp[1], xg[1], dx[1])
-    GS0, GS1 = GShapeLinear(xp[0], xg[0], dx[0]), GShapeLinear(xp[1], xg[1], dx[1])
-    SFC0, SFC1 = ShapeLinearCenter(), ShapeLinearCenter()
+    SF0, SF1, SF2 = ShapeLinear(xp[0], xg[0], dx[0]), ShapeLinear(xp[1], xg[1], dx[1]), ShapeLinear(xp[2], xg[2], dx[2])
+    GS0, GS1, GS2 = GShapeLinear(xp[0], xg[0], dx[0]), GShapeLinear(xp[1], xg[1], dx[1]), GShapeLinear(xp[2], xg[2], dx[2])
+    SFC0, SFC1, SFC2 = ShapeLinearCenter(), ShapeLinearCenter(), ShapeLinearCenter()
 
-    SF = SF0 * SF1
-    GSC = ti.Vector([GS0 * SFC1, SFC0 * GS1]).cast(float)
-    return SF, GSC
+    SF = SF0 * SF1 * SF2
+    GSC = ti.Vector([GS0 * SFC1 * SFC2, SFC0 * GS1 * SFC2, SFC0 * SFC1 * GS2]).cast(float)
+    return SF, GS, GSC
 
 
 # ========================================================= #
@@ -218,15 +218,16 @@ def BsplineQ(x, xg, dx, domain):
 def BsplineQ1(xp, xg, dx, domain):
     SF0, GS0 = BsplineQ(xp[0], xg[0], dx[0], domain[0])
     SF1, GS1 = BsplineQ(xp[1], xg[1], dx[1], domain[1])
+    SF2, GS2 = BsplineQ(xp[2], xg[2], dx[2], domain[2])
 
-    SF = SF0 * SF1
-    GS = ti.Vector([GS0 * SF1, SF0 * GS1]).cast(float)
+    SF = SF0 * SF1 * SF2
+    GS = ti.Vector([GS0 * SF1 * SF2, SF0 * GS1 * SF2, SF0 * SF1 * GS2]).cast(float)
     return SF, GS
 
 
 @ti.func
 def BsplineQ2(xp, xg, dx, domain):
-    return 0., ti.Matrix.zero(float, 2), ti.Matrix.zero(float, 2)
+    return 0., ti.Matrix.zero(float, 3), ti.Matrix.zero(float, 3)
 
 
 # ========================================================= #
@@ -234,54 +235,6 @@ def BsplineQ2(xp, xg, dx, domain):
 #             Cubic B-spline shape function                 #
 #                                                           #
 # ========================================================= #
-@ti.func
-def ShapeBsplineC03(xp, xg, dx):
-    nx = 0.
-    d = ti.abs(xp - xg) / dx
-    if d < 2:
-        if d > 1:
-            nx = (2 - d) ** 3 / 6
-        else:
-            nx = 0.5 * d ** 3 - d ** 2 + 2. / 3.
-    return nx
-
-
-@ti.func
-def ShapeBsplineC13(xp, xg, dx):
-    nx = 0.
-    d = ti.abs(xp - xg) / dx
-    if d < 2:
-        if d > 1:
-            nx = (2 - d) ** 3 / 6
-        else:
-            nx = 0.5 * d ** 3 - d ** 2 + 2. / 3.
-    return nx
-
-
-@ti.func
-def ShapeBsplineC23(xp, xg, dx):
-    nx = 0.
-    d = ti.abs(xp - xg) / dx
-    if d < 2:
-        if d > 1:
-            nx = (2 - d) ** 3 / 6
-        else:
-            nx = 0.5 * d ** 3 - d ** 2 + 2. / 3.
-    return nx
-
-
-@ti.func
-def ShapeBsplineC33(xp, xg, dx):
-    nx = 0.
-    d = ti.abs(xp - xg) / dx
-    if d < 2:
-        if d > 1:
-            nx = (2 - d) ** 3 / 6
-        else:
-            nx = 0.5 * d ** 3 - d ** 2 + 2. / 3.
-    return nx
-
-
 @ti.func
 def ShapeBsplineC(xp, xg, dx):
     nx = 0.
@@ -308,70 +261,18 @@ def GShapeBsplineC(xp, xg, dx):
 
 
 @ti.func
-def GShapeBsplineC(xp, xg, dx):
-    dnx = 0.
-    d = ti.abs(xp - xg) / dx
-    a = sign(xp - xg)
-    if d < 2:
-        if d > 1:
-            dnx = -0.5 * (2 - d) ** 2 * a / dx
-        else:
-            dnx = (1.5 * d ** 2 - 2 * d) * a / dx
-    return dnx
-
-
-@ti.func
-def GShapeBsplineC(xp, xg, dx):
-    dnx = 0.
-    d = ti.abs(xp - xg) / dx
-    a = sign(xp - xg)
-    if d < 2:
-        if d > 1:
-            dnx = -0.5 * (2 - d) ** 2 * a / dx
-        else:
-            dnx = (1.5 * d ** 2 - 2 * d) * a / dx
-    return dnx
-
-
-@ti.func
-def GShapeBsplineC(xp, xg, dx):
-    dnx = 0.
-    d = ti.abs(xp - xg) / dx
-    a = sign(xp - xg)
-    if d < 2:
-        if d > 1:
-            dnx = -0.5 * (2 - d) ** 2 * a / dx
-        else:
-            dnx = (1.5 * d ** 2 - 2 * d) * a / dx
-    return dnx
-
-
-@ti.func
-def GShapeBsplineC(xp, xg, dx):
-    dnx = 0.
-    d = ti.abs(xp - xg) / dx
-    a = sign(xp - xg)
-    if d < 2:
-        if d > 1:
-            dnx = -0.5 * (2 - d) ** 2 * a / dx
-        else:
-            dnx = (1.5 * d ** 2 - 2 * d) * a / dx
-    return dnx
-
-
-@ti.func
 def BsplineC1(xp, xg, dx, domain):
-    SF0, SF1 = ShapeBsplineC(xp[0], xg[0], dx[0]), ShapeBsplineC(xp[1], xg[1], dx[1])
-    GS0, GS1 = GShapeBsplineC(xp[0], xg[0], dx[0]), GShapeBsplineC(xp[1], xg[1], dx[1])
+    SF0, SF1, SF2 = ShapeBsplineC(xp[0], xg[0], dx[0]), ShapeBsplineC(xp[1], xg[1], dx[1]), ShapeBsplineC(xp[2], xg[2], dx[2])
+    GS0, GS1, GS2 = GShapeBsplineC(xp[0], xg[0], dx[0]), GShapeBsplineC(xp[1], xg[1], dx[1]), GShapeBsplineC(xp[2], xg[2], dx[2])
 
-    SF = SF0 * SF1
-    GS = ti.Vector([GS0 * SF1, SF0 * GS1]).cast(float)
+    SF = SF0 * SF1 * SF2
+    GS = ti.Vector([GS0 * SF1 * SF2, SF0 * GS1 * SF2, SF0 * SF1 * GS2]).cast(float)
     return SF, GS
 
 
 @ti.func
 def BsplineC2(xp, xg, dx, domain):
-    return 0., ti.Matrix.zero(float, 2), ti.Matrix.zero(float, 2)
+    return 0., ti.Matrix.zero(float, 3), ti.Matrix.zero(float, 3)
 
 
 # ========================================================= #

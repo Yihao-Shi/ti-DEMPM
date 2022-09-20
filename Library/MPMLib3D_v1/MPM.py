@@ -1,9 +1,10 @@
 import taichi as ti
-import MPMLib2D_v1.MPMParticles as particle
-import MPMLib2D_v1.MPMMaterials as material
-import MPMLib2D_v1.MPMGrids as grid
-import MPMLib2D_v1.MPMCells as cell
-import MPMLib2D_v1.TimeIntegrationMPM as Solver
+import MPMLib3D_v1.MPMParticles as Particle
+import MPMLib3D_v1.MPMMaterials as Material
+import MPMLib3D_v1.MPMGrids as Grid
+import MPMLib3D_v1.MPMCells as Cell
+import MPMLib3D_v1.MPMEngine as Engine
+import MPMLib3D_v1.TimeIntegrationMPM as TimeIntegrationMPM
 
 
 @ti.data_oriented
@@ -29,39 +30,28 @@ class MPM:
         self.bodyNum = int(bodyNum)
         self.matNum = int(matNum)
         self.max_particle_num = int(max_particle_num)
-        self.Stablization = Stablization                                                                 # /Anti-locking Technique/ 0 for NULL; 1 for b-bar; 2 for f-bar; 3 for cell-average
+        self.Stablization = Stablization
         self.threshold = 1e-8
 
-        if ti.static(self.Algorithm) == 0: 
-            print("Integration Scheme: USF")
-        elif ti.static(self.Algorithm) == 1: 
-            print("Integration Scheme: USL")
-        elif ti.static(self.Algorithm) == 2: 
-            print("Integration Scheme: MUSL")
-        elif ti.static(self.Algorithm) == 3: 
-            print("Integration Scheme: undeformed GIMP")
-            if ti.static(self.ShapeFunction != 1): 
-                print("!!ERROR: Shape Function must equal to 1")
-                assert 0
-        elif ti.static(self.Algorithm) == 4: 
-            print("Integration Scheme: MLSMPM")
+        self.MainLoop = None
+            
         
         self.BasisType = 0
         if ti.static(self.ShapeFunction) == 0: 
             print("Shape Function: Linear")
-            self.BasisType = 4
+            self.BasisType = 8
         elif ti.static(self.ShapeFunction) == 1: 
             print("Shape Function: GIMP")
-            self.BasisType = 9
+            self.BasisType = 27
         elif ti.static(self.ShapeFunction) == 2: 
             print("Shape Function: Quadratic B-spline")
-            self.BasisType = 9
+            self.BasisType = 27
         elif ti.static(self.ShapeFunction) == 3: 
             print("Shape Function: Cubic B-spline")
-            self.BasisType = 16
+            self.BasisType = 64
         elif ti.static(self.ShapeFunction) == 4: 
             print("Shape Function: NURBS")
-        
+
         if ti.static(self.Stablization) == 0: 
             print("Stablization Technique: NULL")
         elif ti.static(self.Stablization) == 1: 
@@ -79,15 +69,15 @@ class MPM:
             "Mat": int,                                                           # Material name
             "Type": int,                                                          # /Body shape/ 0 for rectangle; 1 for triangle; 2 for sphere
             "MacroRho": float,                                                    # Macro density
-            "pos0": ti.types.vector(2, float),                                    # Initial position or center of sphere of Body
-            "len": ti.types.vector(2, float),                                     # Size of Body
+            "pos0": ti.types.vector(3, float),                                    # Initial position or center of sphere of Body
+            "len": ti.types.vector(3, float),                                     # Size of Body
             "rad": float,                                                         # Radius
-            "v0": ti.types.vector(2, float),                                      # Initial velocity
-            "fixedV": ti.types.vector(2, int),                                    # Fixed velocity
+            "v0": ti.types.vector(3, float),                                      # Initial velocity
+            "fixedV": ti.types.vector(3, int),                                    # Fixed velocity
             "DT": ti.types.vector(3, float)                                       # DT
         }, shape=(self.bodyNum,))
         
-        self.MatInfo = ti.Struct.field({                                          # List of material parameters
+        self.MatInfo = ti.Struct.field({                                          # List of Material parameters
             "Type": int,                                                          # /Constitutive model/ 0 for Hyper-elastic; 1 for Mohr-Coulomb; 2 for Drucker-Parger; 3 for Newtonian
             "Modulus": float,                                                     # Young's Modulus for soil; Bulk modulus for fluid
             "mu": float,                                                          # Possion ratio
@@ -108,77 +98,78 @@ class MPM:
 
         
     def AddGrid(self):
-        print('---------------------------------------- Grid Initialization ------------------------------------------')
-        self.lg = grid.GridList(self.Domain, self.Dx, self.Contact_Detection)                    # List of mpm grids
-        print('Grid Number = ', self.lg.gnum)
-        self.lg.GridInit(self.Dx)
-        return self.lg
+        print('------------------------ Grid Initialization ------------------------')
+        self.gridList = Grid.GridList(self.Domain, self.threshold, self.ShapeFunction, self.Dx, self.Dt[None], self.Contact_Detection)                    # List of self grids
+        print('Grid Number = ', self.gridList.gnum)
+        self.gridList.GridInit()
+        return self.gridList
 
     def AddMaterial(self):
-        print('------------------------------------- Material Initialization -----------------------------------------')
-        self.lm = material.MaterialList(self.matNum)                                                                     # List of mpm materials
+        print('------------------------ Material Initialization ------------------------')
+        self.matList = Material.MaterialList(self.matNum)                                                                     # List of self materials
         for nm in range(self.MatInfo.shape[0]):
-            print('Particle material ID = ', nm)
+            print('Particle Material ID = ', nm)
             if self.MatInfo[nm].Type == 0:
-                self.lm.matType[nm] = self.MatInfo[nm].Type                                       # Hyper-elastic Model
-                self.lm.ElasticModel(nm, self.MatInfo)
+                self.matList.matType[nm] = self.MatInfo[nm].Type                                       # Hyper-elastic Model
+                self.matList.ElasticModel(nm, self.MatInfo)
             elif self.MatInfo[nm].Type == 1:                                                      # Mohr-Coulomb Model
-                self.lm.matType[nm] = self.MatInfo[nm].Type
-                self.lm.MohrCoulombModel(nm, self.MatInfo)
+                self.matList.matType[nm] = self.MatInfo[nm].Type
+                self.matList.MohrCoulombModel(nm, self.MatInfo)
             elif self.MatInfo[nm].Type == 2:                                                      # Drucker-Prager Model
-                self.lm.matType[nm] = self.MatInfo[nm].Type
-                self.lm.DruckerPragerModel(nm, self.MatInfo)
+                self.matList.matType[nm] = self.MatInfo[nm].Type
+                self.matList.DruckerPragerModel(nm, self.MatInfo)
             elif self.MatInfo[nm].Type == 3:                                                      # Newtonian Model
-                self.lm.matType[nm] = self.MatInfo[nm].Type
-                self.lm.NewtonianModel(nm, self.MatInfo)
+                self.matList.matType[nm] = self.MatInfo[nm].Type
+                self.matList.NewtonianModel(nm, self.MatInfo)
             elif self.MatInfo[nm].Type == 4:
-                self.lm.matType[nm] = self.MatInfo[nm].Type
-                self.lm.ViscoplasticModel(nm, self.MatInfo)
+                self.matList.matType[nm] = self.MatInfo[nm].Type
+                self.matList.ViscoplasticModel(nm, self.MatInfo)
             elif self.MatInfo[nm].Type == 5:
-                self.lm.matType[nm] = self.MatInfo[nm].Type
-                self.lm.ElasticViscoplasticModel(nm, self.MatInfo)
-        return self.lm
-
-    
-
-    def AddParticle(self):
-        print('---------------------------------------- Body Initialization ------------------------------------------')
-        self.lp = particle.ParticleList(self.Dx, self.Domain, self.max_particle_num)                                                            # List of mpm particles
-        self.lp.StoreShapeFuncs(self.max_particle_num, self.BasisType)
-        for nb in range(self.BodyInfo.shape[0]):
-            if self.BodyInfo[nb].Type == 0:
-                self.lp.AddRectangle(nb, self.BodyInfo, self.lm, self.Npic)
-            elif self.BodyInfo[nb].Type == 1:
-                self.lp.AddTriangle(nb, self.BodyInfo, self.lm, self.Npic)
-            elif self.BodyInfo[nb].Type == 2:
-                self.lp.AddCircle(nb, self.BodyInfo, self.lm, self.Npic)
-        if self.Algorithm == 3:
-            self.lp.StoreParticleLen(self.max_particle_num)
-            self.lp.GIMPInit(self.Npic)
-        return self.lp
+                self.matList.matType[nm] = self.MatInfo[nm].Type
+                self.matList.ElasticViscoplasticModel(nm, self.MatInfo)
+        return self.matList
 
     def AddCell(self):
-	    print('---------------------------------------- Cell Initialization ------------------------------------------')
-        self.cell = cell.CellList(self.Domain, self.Dx)                                                                  # List of mpm cells
-        print('Cell Number = ', self.lg.gnum)
-        self.cell.CellInit()
-        self.lp.MPMCell(self.cell)
-        return self.cell
-        
-    def AddParticlesInRun(self, nb):
-        print('---------------------------------------- Adding Body  -------------------------------------------------')
-        if self.BodyInfo[nb].Type == 0:
-            self.lp.AddRectangle(nb, self.BodyInfo, self.Npic)
-        elif self.BodyInfo[nb].Type == 1:
-            self.lp.AddTriangle(nb, self.BodyInfo, self.Npic)
-        elif self.BodyInfo[nb].Type == 2:
-            self.lp.AddCircle(nb, self.BodyInfo, self.Npic)
-        if self.Algorithm == 3:
-            self.lp.GIMPInit(self.Npic)
+        print('------------------------ Cell Initialization ------------------------')
+        self.cellList = Cell.CellList(self.Domain, self.Dx)                                                                  # List of self cells
+        print('Cell Number = ', self.gridList.gnum, '\n')
+        self.cellList.CellInit()
+        return self.cellList
 
+    def AddParticle(self):
+        print('------------------------ Body Initialization ------------------------')
+        self.partList = Particle.ParticleList(self.Dx, self.Domain, self.threshold, self.max_particle_num, self.ShapeFunction, self.Stablization, self.Dt[None], 
+                                              self.gridList, self.matList, self.cellList)                     # List of self particles
+        self.partList.StoreShapeFuncs(self.BasisType)
+        for nb in range(self.BodyInfo.shape[0]):
+            if self.BodyInfo[nb].Type == 0:
+                self.partList.AddRectangle(nb, self.BodyInfo, self.Npic)
+            elif self.BodyInfo[nb].Type == 1:
+                self.partList.AddTriangle(nb, self.BodyInfo, self.Npic)
+            elif self.BodyInfo[nb].Type == 2:
+                self.partList.AddCircle(nb, self.BodyInfo, self.Npic)
+        if self.Algorithm == 3:
+            self.partList.StoreParticleLen()
+            self.partList.GIMPInit(self.Npic)
+        self.partList.MPMCell()    
+        return self.partList
+
+    def AddParticlesInRun(self, t):
+        for nb in range(self.BodyInfo.shape[0]):
+            if t % self.BodyInfo[nb].DT[1] < self.Dt[None] and self.BodyInfo[nb].DT[0] <= t <= self.BodyInfo[nb].DT[2]:
+                print('------------------------ Add Body  ------------------------')
+                if self.BodyInfo[nb].Type == 0:
+                    self.partList.AddRectangle(nb, self.BodyInfo, self.Npic, self.Dx)
+                elif self.BodyInfo[nb].Type == 1:
+                    self.partList.AddTriangle(nb, self.BodyInfo, self.Npic)
+                elif self.BodyInfo[nb].Type == 2:
+                    self.partList.AddCircle(nb, self.BodyInfo, self.Npic)
+                if self.Algorithm == 3:
+                    self.partList.GIMPInit(self.Dx, self.Npic)
+    
     @ti.kernel
     def CriticalTimeStep(self, CFL: float):
-        matList = self.lm
+        matList = self.matList
         SoundSpeed = 0.
         for nb in range(self.BodyInfo.shape[0]):
             matID = self.BodyInfo[nb].Mat
@@ -186,19 +177,48 @@ class MPM:
             mu = self.MatInfo[matID].mu
             c_2 = young * (1 - mu) / (1 + mu) / (1 - 2 * mu) / self.BodyInfo[nb].MacroRho
             ti.atomic_max(SoundSpeed, ti.sqrt(c_2))
-        dt_c = ti.min(self.Dx[0], self.Dx[1]) / SoundSpeed
+        dt_c = ti.min(self.Dx[0], self.Dx[1], self.Dx[2]) / SoundSpeed
         self.Dt[None] = ti.min(CFL * dt_c, self.Dt[None])
 
-    @ti.kernel
-    def AdaptiveTimeScheme(self, CFL: float):
-        maxVel = ti.Vector([0., 0.])
-        for np in range(self.lp.particleNum[None]):
-            if self.lp.v[np][0] + self.lp.cs[np] > maxVel[0]:
-                maxVel[0] = self.lp.v[np][0] + self.lp.cs[np]
-            if self.lp.v[np][1] + self.lp.cs[np] > maxVel[1]:
-                maxVel[1] = self.lp.v[np][1] + self.lp.cs[np]
-        critT = CFL * self.Dx[0] / maxVel.norm()
-        if self.UserDefinedDt >  critT:
-            self.Dt[None] = critT
+
+
+    # ============================================= Time Solver ======================================================= #
+    def Solver(self, TIME, saveTime, CFL, vtkPath, ascPath, adaptive):
+        print('------------------------ MPM Solver ------------------------')
+        if self.MainLoop:
+            self.MainLoop.UpdateSolver(TIME, saveTime, CFL, vtkPath, ascPath, adaptive)
+            self.MainLoop.Solver()
         else:
-            self.Dt[None] = self.UserDefinedDt
+            if ti.static(self.Algorithm == 0):
+                print("Integration Scheme: USF\n")
+                self.Engine = Engine.USF(self.Gravity, self.threshold, self.Damp, self.alphaPIC, self.Dt[None], self.partList, self.gridList, self.matList)
+                self.MainLoop = TimeIntegrationMPM.SolverUSF(self, TIME, saveTime, CFL, vtkPath, ascPath, adaptive)
+                self.MainLoop.TurnOnSolver(t=0., step=0, printNum=0)
+                self.MainLoop.Solver()
+            elif ti.static(self.Algorithm == 1):
+                print("Integration Scheme: USL\n")
+                self.Engine = Engine.USL(self.Gravity, self.threshold, self.Damp, self.alphaPIC, self.Dt[None], self.partList, self.gridList, self.matList)
+                self.MainLoop = TimeIntegrationMPM.SolverUSL(self, TIME, saveTime, CFL, vtkPath, ascPath, adaptive)
+                self.MainLoop.TurnOnSolver(t=0., step=0, printNum=0)
+                self.MainLoop.Solver()
+            elif ti.static(self.Algorithm == 2):
+                print("Integration Scheme: MUSL\n")
+                self.Engine = Engine.MUSL(self.Gravity, self.threshold, self.Damp, self.alphaPIC, self.Dt[None], self.partList, self.gridList, self.matList)
+                self.MainLoop = TimeIntegrationMPM.SolverMUSL(self, TIME, saveTime, CFL, vtkPath, ascPath, adaptive)
+                self.MainLoop.TurnOnSolver(t=0., step=0, printNum=0)
+                self.MainLoop.Solver()
+            elif ti.static(self.Algorithm == 3):
+                print("Integration Scheme: undeformed GIMP\n")
+                if ti.static(self.ShapeFunction != 1): 
+                    print("!!ERROR: Shape Function must equal to 1")
+                    assert 0
+                self.Engine = Engine.GIMP(self.Gravity, self.threshold, self.Damp, self.alphaPIC, self.Dt[None], self.partList, self.gridList, self.matList)
+                self.MainLoop = TimeIntegrationMPM.SolverGIMP(self, TIME, saveTime, CFL, vtkPath, ascPath, adaptive)
+                self.MainLoop.TurnOnSolver(t=0., step=0, printNum=0)
+                self.MainLoop.Solver()
+            elif ti.static(self.Algorithm == 4):
+                print("Integration Scheme: MLSMPM\n")
+                self.Engine = Engine.MLSMPM(self.Gravity, self.threshold, self.Damp, self.alphaPIC, self.Dt[None], self.partList, self.gridList, self.matList)
+                self.MainLoop = TimeIntegrationMPM.SolverMLSMPM(self, TIME, saveTime, CFL, vtkPath, ascPath, adaptive)
+                self.MainLoop.TurnOnSolver(t=0., step=0, printNum=0)
+                self.MainLoop.Solver()

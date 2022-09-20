@@ -1,5 +1,5 @@
 import taichi as ti
-from MPMLib2D_v1.Function import *
+from MPMLib3D_v1.Function import *
 
 
 @ti.func
@@ -9,24 +9,40 @@ def Sigrot(np, dw, partList):
 
 @ti.func
 def Elastic_devi(np, de, partList, matList, matID):
-    partList.stress[np] += 2 * matList.g[matID] * (de - de.trace() * ti.Matrix.identity(float, 2) / 2.)
+    partList.stress[np] += 2 * matList.g[matID] * (de - de.trace() * ti.Matrix.identity(float, 3) / 3.)
 
 
 @ti.func
 def Elastic_p(np, de, partList, matList, matID):
-    partList.stress[np] += matList.la[matID] * de.trace() * ti.Matrix.identity(float, 2)
+    partList.stress[np] += matList.la[matID] * de.trace() * ti.Matrix.identity(float, 3)
 
 
 @ti.func
-def StressDecomposed(np, partList):
-    sigma = partList.stress[np].trace() / 2.
-    sd = partList.stress[np] - sigma * ti.Matrix.identity(float, 2)
-    return sigma, sd
+def MeanStress(np, partList):
+    sigma = partList.stress[np].trace() / 3.
+    return sigma
 
 
 @ti.func
-def EquivalentStress(sd):
+def StressDecomposed(np, sigma, partList):
+    sd = partList.stress[np] - sigma * ti.Matrix.identity(float, 3)
+    return sd
+
+
+@ti.func
+def ComputeInvariantJ2(sd):
     J2 = 0.5 * (sd * sd).sum()
+    return J2
+
+
+@ti.func
+def ComputeInvariantJ3(sd):
+    J3 = sd.determinant()
+    return J3
+
+
+@ti.func
+def EquivalentStress(J2):
     seqv = ti.sqrt(3 * J2)
     return seqv
 
@@ -43,14 +59,16 @@ def Elastic(np, de, dw, partList, matList, matID):                              
 def VonMises(np, de, dw, partList, matList, matID):                                 # J2 Flow Rule
     Sigrot(np, dw, partList)
     Elastic_devi(np, de, partList, matList, matID)
-    sigma, sd = StressDecomposed(np, partList)
-    seqv = EquivalentStress(sd)
+    sigma = MeanStress(np, partList)
+    sd = StressDecomposed(np, sigma, partList)
+    J2 = ComputeInvariantJ2(sd)
+    seqv = EquivalentStress(J2)
     if seqv > matList.yield0[matID]:
         partList.plasticStrainEff[np] += (seqv - matList.yield0[matID]) / (3 * matList.g[matID] + matList.Ep[matID])
         ratio = matList.yield0[matID] / seqv
         sd *= ratio
         seqv *= ratio
-        partList.stress[np] = sd + sigma * ti.Matrix.identity(float, 2)
+        partList.stress[np] = sd + sigma * ti.Matrix.identity(float, 3)
 
 
 @ti.func
@@ -59,21 +77,30 @@ def IsotropicHardening():
 
 
 @ti.func
-def MohrCoulomb(np, de, dw, partList, matList, matID):
+def Tresca():
+    pass
+
+
+@ti.func
+def ComputeLodeAngle(J2, threshold):
+    J2 = ti.min(J2, threshold)
+    arg = ti.min(ti.max(3*ti.sqrt(3) * J3 / (2 * J2 * ti.sqrt(J2)), -1 + threshold), 1 - threshold)
+    lode = 1./3. * ti.asin(arg)
+    return lode
+
+
+@ti.func
+def MohrCoulomb(np, de, dw, partList, matList, matID, threshold):
     # !-- trial elastic stresses ----!
-    Sigrot(np, dw, partList)
+    '''Sigrot(np, dw, partList)
     Elastic_devi(np, de, partList, matList, matID)
     Elastic_p(np, de, partList, matList, matID)
-    sigma, sd = StressDecomposed(np, partList)
-    seqv = EquivalentStress(sd)
-    J2 = (seqv / ti.sqrt(3)) ** 2
-    J3 = sd.determinant()
-    arg = -3*ti.sqrt(3) * J3 / (2 * J2 * ti.sqrt(J2))
-    lode = -1/3 * ti.asin(arg)
-
-    #Implicit method
-    theta = 1.0
-    epsilon = 1e-12
+    sigma = MeanStress(np, partList)
+    sd = StressDecomposed(np, sigma, partList)
+    J2 = ComputeInvariantJ2(sd)
+    J3 = ComputeInvariantJ3(sd)
+    seqv = EquivalentStress(J2)
+    lode = ComputeLodeAngle(J2, threshold)
 
     sin_lode, cos_lode, sign_lode = ti.sin(lode), ti.cos(lode), sign(lode)
     sin_lodeT, cos_lodeT = ti.sin(matList.lodeT[np]), ti.cos(matList.lodeT[np])
@@ -96,7 +123,7 @@ def MohrCoulomb(np, de, dw, partList, matList, matID):
     f = sMC - matList.c[np] * cos_fai
     if f > 0.:
         pass
-    '''U, sig, V = ti.svd(partList.stress[np])
+    U, sig, V = ti.svd(partList.stress[np])
     s1, s2 = sig[0, 0], sig[1, 1]
     sin0 = ti.sin(partList.phi[np])
     cos0 = ti.cos(partList.phi[np])
@@ -149,14 +176,36 @@ def MohrCoulomb(np, de, dw, partList, matList, matID):
 
 
 @ti.func
+def SoftSoil(np, de, dw, partList, matList, matID):
+    pass
+
+
+@ti.func
+def HardeningSoil(np, de, dw, partList, matList, matID):
+    pass
+
+
+@ti.func
+def Norsand(np, de, dw, partList, matList, matID):
+    pass
+
+
+@ti.func
+def ModifiedCamClay(np, de, dw, partList, matList, matID):
+    pass
+
+
+@ti.func
 def DruckerPrager(np, de, dw, partList, matList, matID):
     # !-- trial elastic stresses ----!
     Sigrot(np, dw, partList)
     Elastic_devi(np, de, partList, matList, matID)
     Elastic_p(np, de, partList, matList, matID)
-    sigma, sd = StressDecomposed(np, partList)
-    seqv = EquivalentStress(sd)
-    J2sqrt = seqv / ti.sqrt(3)
+    sigma = MeanStress(np, partList)
+    sd = StressDecomposed(np, sigma, partList)
+    J2 = ComputeInvariantJ2(sd)
+    seqv = EquivalentStress(J2)
+    J2sqrt = ti.sqrt(J2)
     dpFi = J2sqrt + matList.q_fai[matID] * sigma - matList.k_fai[matID]
     dpsig = sigma - matList.tensile[matID]
 
@@ -167,7 +216,7 @@ def DruckerPrager(np, de, dw, partList, matList, matID):
             ratio = (matList.k_fai[matID] - matList.q_fai[matID] * sigma) / J2sqrt
             sd *= ratio
             seqv *= ratio
-            partList.stress[np] = sd + sigma * ti.Matrix.identity(float, 2)
+            partList.stress[np] = sd + sigma * ti.Matrix.identity(float, 3)
             partList.plasticStrainEff[np] += dlamd * ti.sqrt(1./3. + (2./9.) * matList.q_psi[matID] ** 2)
     else:
         alphap = ti.sqrt(1 + matList.q_fai[matID] ** 2) - matList.q_fai[matID]
@@ -180,19 +229,19 @@ def DruckerPrager(np, de, dw, partList, matList, matID):
             ratio = (matList.k_fai[matID] - matList.q_fai[matID] * sigma) / J2sqrt
             sd *= ratio
             seqv *= ratio
-            partList.stress[np] = sd + sigma * ti.Matrix.identity(float, 2)
+            partList.stress[np] = sd + sigma * ti.Matrix.identity(float, 3)
             partList.plasticStrainEff[np] += dlamd * ti.sqrt(1./3. + (2./9.) * matList.q_psi[matID] ** 2)
         else:
             dlamd = (sigma - matList.tensile[matID]) / matList.k[matID]
-            partList.stress[np] += (matList.tensile[matID] - sigma) * ti.Matrix.identity(float, 2)
+            partList.stress[np] += (matList.tensile[matID] - sigma) * ti.Matrix.identity(float, 3)
             partList.plasticStrainEff[np] += dlamd * (1./3.) * ti.sqrt(2)
-    '''# !-- trial elastic stresses ----!
-    Sigrot(np, dw, partList)
+    ''' # !-- trial elastic stresses ----!
+    sigma, sd = Sigrot(np, dw, partList)
     Elastic_devi(np, de, partList, matList, matID)
     Elastic_p(np, de, partList, matList, matID)
-    sigma, sd = StressDecomposed(np, partList)
-    seqv = EquivalentStress(sd)
-    J2sqrt = seqv / ti.sqrt(3)
+    J2 = ComputeInvariantJ2(sd)
+    seqv = EquivalentStress(J2)
+    J2sqrt = ti.sqrt(J2)
     dpFi = J2sqrt + matList.q_fai[matID] * sigma - matList.k_fai[matID]
     if dpFi > 0:
         if matList.q_fai[matID] * (sigma - J2sqrt / matList.g[matID] * matList.k[matID] * matList.q_psi[matID]) - matList.k_fai[matID] < 0:
@@ -207,14 +256,14 @@ def DruckerPrager(np, de, dw, partList, matList, matID):
 
 @ti.func
 def Newtonian(np, de, partList, matList, matID):
-    partList.stress[np] = partList.P[np] * ti.Matrix.identity(float, 2) \
-                          + 2 * matList.vis[matID] * (partList.StrainRate[np] - partList.StrainRate[np].trace() * ti.Matrix.identity(float, 2) / 2.)
+    partList.stress[np] = partList.P[np] * ti.Matrix.identity(float, 3) \
+                          + 2 * matList.vis[matID] * (partList.StrainRate[np] - partList.StrainRate[np].trace() * ti.Matrix.identity(float, 3) / 3.)
 
 
 @ti.func
 def BinghamModel(np, de, partList, matList, matID):
     dnorm = ti.sqrt(2 * (partList.StrainRate[np] * partList.StrainRate[np]).sum())
-    partList.stress[np] = partList.P[np] * ti.Matrix.identity(float, 2) \
+    partList.stress[np] = partList.P[np] * ti.Matrix.identity(float, 3) \
                           + 2 * (matList.vis[matID] + partList.yieldStress[matID] / dnorm * (1 - ti.exp(-m * dnorm))) * partList.StrainRate[np]
 
 
@@ -233,8 +282,8 @@ def Granular(np, de, partList, matList, matID):
         matList.vis[matID] = miu * partList.P[np]
     else:
         matList.vis[matID] = miu * partList.P[np] / dnorm
-    partList.stress[np] = - partList.P[np] * ti.Matrix.identity(float, 2) \
-                          + 2 * matList.vis[matID] * (de - de.trace() * ti.Matrix.identity(float, 2) / 2.)
+    partList.stress[np] = - partList.P[np] * ti.Matrix.identity(float, 3) \
+                          + 2 * matList.vis[matID] * (de - de.trace() * ti.Matrix.identity(float, 3) / 3.)
 
 
 @ti.func
@@ -243,10 +292,12 @@ def ElasticViscoplastic(np, de, dw, partList, matList, matID):
     Sigrot(np, dw, partList)
     Elastic_devi(np, de, partList, matList, matID)
     Elastic_p(np, de, partList, matList, matID)
-    sigma, sd = StressDecomposed(np, partList)
+    sigma = MeanStress(np, partList)
+    sd = StressDecomposed(np, sigma, partList)
     I1, p = 2 * sigma, ti.max(-sigma, 1e-5)
-    seqv = EquivalentStress(sd)
-    J2sqrt = seqv / ti.sqrt(3)
+    J2 = ComputeInvariantJ2(sd)
+    seqv = EquivalentStress(J2)
+    J2sqrt = ti.sqrt(J2)
 
     if J2sqrt + matList.miu_s[matID] * p > 0:
         dnorm = de.determinant()
@@ -255,36 +306,38 @@ def ElasticViscoplastic(np, de, dw, partList, matList, matID):
         dpFi = J2sqrt + matList.q_fai[matID] * sigma 
         if dpFi < 0:
             sd = miu * p * partList.StrainRate[np] / dnorm
-            partList.stress[np] = sigma * ti.Matrix.identity(float, 2) + sd
+            partList.stress[np] = sigma * ti.Matrix.identity(float, 3) + sd
         if dpFi > 0:
             kapa = (matList.miu_2[matID] - matList.miu_s[matID]) * matList.I0[matID] \
                    / (3. * (matList.I0[matID] + I) ** 2 * ti.sqrt(p * matList.rhop[matID]) * dnorm * matList.diamp[matID])
             dlamd = (miu * matList.k[matID] * de.trace() + matList.k[matID] * kapa * I1 * de.trace() + (matList.g[matID] / J2sqrt) * (de * sd).sum()) \
                    / (miu ** 2 * matList.k[matID] + 2 * kapa * I1 * miu +  kapa ** 2 * I1 ** 2 + matList.g[matID])
-            partList.stress[np] -= dlamd * (miu * matList.k[matID] * ti.Matrix.identity(float, 2) + (matList.g[matID] / J2sqrt) * sd + I1 * matList.k[matID] * kapa * ti.Matrix.identity(float, 2))
-            sigma, sd = StressDecomposed(np, partList)
+            partList.stress[np] -= dlamd * (miu * matList.k[matID] * ti.Matrix.identity(float, 3) + (matList.g[matID] / J2sqrt) * sd + I1 * matList.k[matID] * kapa * ti.Matrix.identity(float, 3))
+            sigma = MeanStress(np, partList)
+            sd = StressDecomposed(np, sigma, partList)
             I1, p = 2 * sigma, ti.max(-sigma, 1e-5)
-            seqv = EquivalentStress(sd)
-            J2sqrt = seqv / ti.sqrt(3)
+            J2 = ComputeInvariantJ2(sd)
+            seqv = EquivalentStress(J2)
+            J2sqrt = ti.sqrt(J2)
             if miu * sigma < 0:
-                partList.stress[np] -= sigma * ti.Matrix.identity(float, 2) 
+                partList.stress[np] -= sigma * ti.Matrix.identity(float, 3) 
             elif J2sqrt + miu * sigma > 0:
                 r = -miu * sigma / J2sqrt
-                partList.stress[np] = r * sd + sigma * ti.Matrix.identity(float, 2)
+                partList.stress[np] = r * sd + sigma * ti.Matrix.identity(float, 3)
 
 
 @ti.func
 def NULLModel(np):
-    partList.stress[np] = ti.Matrix.zero(float, 2, 2)
+    partList.stress[np] = ti.Matrix.zero(float, 3, 3)
 
 
 @ti.func
-def CalStress(np, de, dw, partList, matList):
+def CalStress(np, de, dw, partList, matList, threshold):
     matID = partList.materialID[np]
     if matList.matType[matID] == 0:
         Elastic(np, de, dw, partList, matList, matID)
     elif matList.matType[matID] == 1:
-        MohrCoulomb(np, de, dw, partList, matList, matID)
+        MohrCoulomb(np, de, dw, partList, matList, matID, threshold)
     elif matList.matType[matID] == 2:
         DruckerPrager(np, de, dw, partList, matList, matID)
     elif matList.matType[matID] == 3:
@@ -295,3 +348,4 @@ def CalStress(np, de, dw, partList, matList):
         Granular(np, de, partList, matList, matID)
     elif matList.matType[matID] == 5:
         ElasticViscoplastic(np, de, dw, partList, matList, matID)
+

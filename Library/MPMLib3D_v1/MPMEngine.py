@@ -1,126 +1,190 @@
 import taichi as ti
-from MPMLib2D_v1.Function import *
-import MPMLib2D_v1.ConsitutiveModel as cm
+from MPMLib3D_v1.Function import *
+import MPMLib3D_v1.ConsitutiveModel as cm
 
 
 @ti.data_oriented
 class MPMEngine:
-    def __init__(self, dx, partList, gridList, ShapeFunction):
-        self.Dx = dx
+    def __init__(self, gravity, threshold, damp, alphaPIC, dt, partList, gridList, matList):
+        self.gravity = gravity
+        self.threshold = threshold
+        self.alphaPIC = alphaPIC
+        self.damp = damp
+        self.dt = dt
         self.partList = partList
         self.gridList = gridList
-        self.ShapeFunction = ShapeFunction
-
+        self.matList = matList
+    
+    @ti.kernel
+    def Reset(self):
+        for np in range(self.partList.particleNum[None]):
+            self.partList.ResetParticleForce(np)
 
     @ti.kernel
-    def GridReset(mpm: ti.template()):
+    def GridReset(self):
         for ng in self.gridList.id:
             self.gridList.GridReset(ng)
 
 
-    @ti.kernel
-    def CalNDN(mpm, np):
-        for np in range(partList.particleNum[None]):
-            # Reset shape function (N) and gradient of shape function (DN)
-            self.partList.ResetShapeFuncs(np)
-            
-            # Find min position of nodes which are influenced by this particle
-            minLocalNodeId, maxLocalNodeId = self.gridList.FindNode(self.ShapeFunction, self.partList.x[np], self.Dx)
-
-            # Find nodes within the influence range
-            activeID = 0
-            for i in range(minLocalNodeId[0], maxLocalNodeId[0] + 1):
-                for j in range(minLocalNodeId[1], maxLocalNodeId[1] + 1):
-                    nodeID = gridList.GetNodeID(i, j)
-                    partList.UpdateShapeFuncs(mpm.ShapeFunction, np, activeID, nodeID, gridList.x[nodeID], mpm.Stablization)
-                    activeID += 1
-
-
-    @ti.kernel
-    def CalNGIMP(mpm, np):
-        for np in range(partList.particleNum[None]):
-            # Reset shape function (N) and gradient of shape function (DN)
-            partList.ResetShapeFuncs(np)
-            
-            # Find min position of nodes which are influenced by this particle
-            minLocalNodeId, maxLocalNodeId = gridList.FindNodeGIMP(partList.x[np], partList.pSize0[np], mpm.Dx)
-
-            # Find nodes within the influence range
-            activeID = 0
-            for i in range(minLocalNodeId[0], maxLocalNodeId[0] + 1):
-                for j in range(minLocalNodeId[1], maxLocalNodeId[1] + 1):
-                    nodeID = gridList.GetNodeID(i, j)
-                    partList.UpdateGIMP(np, activeID, nodeID, gridList.x[nodeID], mpm.Stablization)
-                    activeID += 1
-
-
-    @ti.kernel
-    def ParticleToGrid_Momentum(mpm: ti.template()):
-        gridList, partList = mpm.lg, mpm.lp
-        for np in range(partList.particleNum[None]):
-            CalNDN(mpm, np)
-            for ln in range(partList.LnID.shape[1]):
-                if partList.LnID[np, ln] >= 0:
-                    nodeID = partList.LnID[np, ln]
-                    nm = partList.Projection(np, ln, partList.m[np])
-                    gridList.UpdateNodalMass(nodeID, nm)
-                    gridList.UpdateNodalMomentumPIC(nodeID, nm * partList.v[np])
-
-
-    @ti.kernel
-    def ParticleToGrid_Force(mpm: ti.template()):
-        gridList, partList = mpm.lg, mpm.lp
-        for np in range(partList.particleNum[None]):
-            # Particle Internal force and external force
-            fInt = -partList.vol[np] * partList.stress[np]
-            fex = partList.m[np] * mpm.Gravity + partList.fc[np]
-            for ln in range(partList.LnID.shape[1]):
-                if partList.LnID[np, ln] >= 0:
-                    nodeID = partList.LnID[np, ln]
-                    df = partList.Projection(np, ln, fex) + partList.ComputeInternalForce(np, ln, fInt)
-                    gridList.UpdateNodalForce(nodeID, df)
-
-                    
-    @ti.kernel
-    def GridMomentum(mpm: ti.template()):
-        gridList = mpm.lg
-        for ng in gridList.id:
-            if gridList.m[ng] > mpm.threshold:
-                gridList.ApplyGlobalDamping(ng, mpm.Damp)
-                gridList.ComputeNodalMomentum(ng, mpm.Dt[None])
-                gridList.ApplyBoundaryCondition(ng, mpm.Dt[None])
-                gridList.ComputeNodalVelocity(ng)
-
-
-    @ti.kernel
-    def GridToParticle(mpm: ti.template()):
-        gridList, partList, matList, cellList = mpm.lg, mpm.lp, mpm.lm, mpm.cell
-        for np in range(partList.particleNum[None]):
-            partList.LinearPICFLIP(np, gridList, mpm.alphaPIC, mpm.Dt[None])
-           
-
-
-    @ti.kernel
-    def UpdateStressStrain(mpm: ti.template()):
-        gridList, partList, matList, cellList = mpm.lg, mpm.lp, mpm.lm, mpm.cell
-        for nc in range(cellList.cellSum):
-            cellList.CellReset(nc)
-
-        for np in range(partList.particleNum[None]):
-            partList.CalLocalDv(gridList, np)
-            partList.UpdateDeformationGrad(np, mpm.Dt[None], matList, cellList, mpm.Stablization, mode=0)
-
-        for np in range(partList.particleNum[None]):
-            partList.UpdateDeformationGrad(np, mpm.Dt[None], matList, cellList, mpm.Stablization, mode=1)
+    @ti.func
+    def CalNDN(self, np):
+        # Reset shape function (N) and gradient of shape function (DN)
+        self.partList.ResetShapeFuncs(np)
         
-        for nc in range(cellList.cellSum):
-            cellList.ComputeCellJacobian(nc)
+        # Find min position of nodes which are influenced by this particle
+        minLocalNodeId, maxLocalNodeId = self.gridList.FindNode(self.partList.x[np])
 
-        for np in range(partList.particleNum[None]):
-            partList.UpdateDeformationGrad(np, mpm.Dt[None], matList, cellList, mpm.Stablization, mode=2)
+        # Find nodes within the influence range
+        activeID = 0
+        for i in range(minLocalNodeId[0], maxLocalNodeId[0] + 1):
+            for j in range(minLocalNodeId[1], maxLocalNodeId[1] + 1):
+                for k in range(minLocalNodeId[2], maxLocalNodeId[2] + 1):
+                    nodeID = self.gridList.GetNodeID(i, j, k)
+                    self.partList.UpdateShapeFuncs(np, activeID, nodeID)
+                    
 
-        for np in range(partList.particleNum[None]):
-            partList.UpdatePartProperties(np)
-            de, dw = partList.UpdateStrain(np, mpm.Dt[None], gridList)
-            cm.CalStress(np, de, dw, partList, matList)
-            partList.ResetParticleForce(np)
+    @ti.kernel
+    def ParticleToGrid_Momentum(self):
+        for np in range(self.partList.particleNum[None]):
+            self.CalNDN(np)
+            for ln in range(self.partList.LnID.shape[1]):
+                if self.partList.LnID[np, ln] >= 0:
+                    nodeID = self.partList.LnID[np, ln]
+                    nm = self.partList.LnShape[np, ln] * self.partList.m[np]
+                    self.gridList.m[nodeID] += nm
+                    self.gridList.mv[nodeID] += nm * self.partList.v[np]
+
+
+    @ti.kernel
+    def ParticleToGrid_Force(self):
+        for np in range(self.partList.particleNum[None]):
+            fInt = -self.partList.vol[np] * self.partList.stress[np]
+            fex = self.partList.m[np] * self.gravity + self.partList.fc[np] 
+            for ln in range(self.partList.LnID.shape[1]):
+                if self.partList.LnID[np, ln] >= 0:
+                    nodeID = self.partList.LnID[np, ln]
+                    df = self.partList.LnShape[np, ln] * fex + self.partList.ComputeInternalForce(np, ln, fInt)
+                    self.gridList.f[nodeID] += df
+
+
+    @ti.kernel
+    def GridMomentum(self):
+        for ng in self.gridList.id:
+            if self.gridList.m[ng] > self.threshold:
+                self.gridList.f[ng] -= self.damp * self.gridList.f[ng].norm() * Normalize(self.gridList.mv[ng])
+                self.gridList.mv[ng] += self.gridList.f[ng] * self.dt
+                self.gridList.ApplyBoundaryCondition(ng)
+                self.gridList.v[ng] = self.gridList.mv[ng] / self.gridList.m[ng]
+
+
+    @ti.kernel
+    def GridToParticle(self):
+        for np in range(self.partList.particleNum[None]):
+            vPIC, vFLIP = ti.Matrix.zero(float, 3, 1), self.partList.v[np]
+            pos = self.partList.x[np]
+            for ln in range(self.partList.LnID.shape[1]):
+                if self.partList.LnID[np, ln] >= 0:
+                    nodeID = self.partList.LnID[np, ln]
+                    SF = self.partList.LnShape[np, ln]
+                    vPIC += SF * self.gridList.v[nodeID] * Zero2OneVector(self.partList.fixVel[np])
+                    vFLIP += SF * self.gridList.f[nodeID] / self.gridList.m[nodeID] * self.dt * Zero2OneVector(self.partList.fixVel[np])
+                    pos += SF * self.gridList.v[nodeID] * self.dt * Zero2OneVector(self.partList.fixVel[np])
+            self.partList.v[np] = self.alphaPIC * vPIC + (1 - self.alphaPIC) * vFLIP
+            self.partList.x[np] = pos 
+
+
+    @ti.kernel
+    def UpdateStressStrain(self):
+        for np in range(self.partList.particleNum[None]):
+            self.partList.CalLocalDv(np)
+            self.partList.UpdateDeformationGrad(np, mode=0)
+
+            self.partList.UpdatePartProperties(np)
+            de, dw = self.partList.UpdateStrain(np)
+            cm.CalStress(np, de, dw, self.partList, self.matList, self.threshold)
+
+
+@ti.data_oriented
+class USF(MPMEngine):
+    def __init__(self, gravity, threshold, damp, alphaPIC, dt, partList, gridList, matList):
+        super().__init__(gravity, threshold, damp, alphaPIC, dt, partList, gridList, matList)
+
+    @ti.kernel
+    def GridVelocity(self):
+        for ng in self.gridList.id:
+            if self.gridList.m[ng] > self.threshold:
+                self.gridList.ApplyBoundaryCondition(ng)
+                self.gridList.ComputeNodalVelocity(ng)
+
+
+@ti.data_oriented
+class USL(MPMEngine):
+    def __init__(self, gravity, threshold, damp, alphaPIC, dt, partList, gridList, matList):
+        super().__init__(gravity, threshold, damp, alphaPIC, dt, partList, gridList, matList)
+
+
+@ti.data_oriented
+class MUSL(MPMEngine):
+    def __init__(self, gravity, threshold, damp, alphaPIC, dt, partList, gridList, matList):
+        super().__init__(gravity, threshold, damp, alphaPIC, dt, partList, gridList, matList)
+
+    @ti.kernel
+    def NodalMomentumMUSL(self):    
+        for ng in self.gridList.id:
+            self.gridList.mv[ng] = ti.Matrix.zero(float, 3)
+
+        for np in range(self.partList.particleNum[None]):
+            for ln in range(self.partList.LnID.shape[1]):
+                if self.partList.LnID[np, ln] >= 0:
+                    nodeID = self.partList.LnID[np, ln]
+                    nm = self.partList.Projection(np, ln, self.partList.m[np])
+                    self.gridList.UpdateNodalMass(nodeID, nm)
+                    self.gridList.UpdateNodalMomentumPIC(nodeID, nm * self.partList.v[np])
+
+        for ng in self.gridList.id:
+            if self.gridList.m[ng] > self.threshold:
+                self.gridList.ApplyBoundaryCondition(ng)
+                self.gridList.ComputeNodalVelocity(ng)  
+
+
+@ti.data_oriented
+class GIMP(MPMEngine):
+    def __init__(self, gravity, threshold, damp, alphaPIC, dt, partList, gridList, matList):
+        super().__init__(gravity, threshold, damp, alphaPIC, dt, partList, gridList, matList)
+
+    @ti.func
+    def CalNDN(self, np):
+        # Reset shape function (N) and gradient of shape function (DN)
+        self.partList.ResetShapeFuncs(np)
+        
+        # Find min position of nodes which are influenced by this particle
+        minLocalNodeId, maxLocalNodeId = self.gridList.FindNodeGIMP(self.partList.x[np], self.partList.pSize0[np])
+
+        # Find nodes within the influence range
+        activeID = 0
+        for i in range(minLocalNodeId[0], maxLocalNodeId[0] + 1):
+            for j in range(minLocalNodeId[1], maxLocalNodeId[1] + 1):
+                for k in range(minLocalNodeId[2], maxLocalNodeId[2] + 1):
+                    nodeID = self.gridList.GetNodeID(i, j, k)
+                    self.partList.UpdateGIMP(np, activeID, nodeID)
+
+
+@ti.data_oriented
+class MLSMPM(MPMEngine):
+    def __init__(self, gravity, threshold, damp, alphaPIC, dt, partList, gridList, matList):
+        super().__init__(gravity, threshold, damp, alphaPIC, dt, partList, gridList, matList)
+
+    
+
+
+    
+
+
+    
+
+
+    
+
+
+    
+
