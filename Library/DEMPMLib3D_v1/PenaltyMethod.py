@@ -10,7 +10,7 @@ class PenaltyMethod:
     
     @ti.kernel
     def InitDEM(self, DEMmatID: int, DEMcontInfo: ti.template()):
-        print("Coupling Scheme: Penalty Method")
+        print("Coupling Scheme: Penalty Method\n")
 
     @ti.kernel
     def InitMPM(self, MPMmatID: int, MPMcontInfo: ti.template()):
@@ -32,7 +32,8 @@ class PenaltyMethod:
         ks = EffectiveValue(self.DEMcontModel.ks[matID1], self.MPMmatList.ks[matID2])
         vs = v_rel - v_rel.dot(norm) * norm  
         trial_ft = -ks * vs * self.dt 
-        key  = ContactPair.HashValue(end1, particle_num + end2)
+        key  = HashValue(end1, particle_num + end2)
+        ft_temp=ti.Matrix.zero(float, 3)
         for i in range(ContactPair.contactNum0[None]):
             if ContactPair.key[i] == key:
                 ft_ori = ContactPair.RelTranslate[i] - ContactPair.RelTranslate[i].dot(norm) * norm

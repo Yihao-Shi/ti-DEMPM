@@ -37,15 +37,11 @@ class TimeIntegrationDEMPM:
         self.adaptive = adaptive
 
     def Output(self, start):
-        print('------------------ Time Step = ', self.step, '------------------')
-        print('Simulation time = ', self.t)
-        print('Time step = ', self.dempm.Dt)
-        print('Physical time = ', time.time() - start)
+        print('# Step = ', self.step, '     ', 'Simulation time = ', self.t, '\n')
         GraphicMPM.WriteFileVTK_MPM(self.mpm.partList, self.mpm.gridList, self.printNum, self.vtkPath)
         GraphicDEM.WriteFileVTK_DEM(self.dem.partList, self.printNum, self.vtkPath)
         SpyMPM.MonitorMPM(self.t, self.mpm.partList, self.printNum, self.ascPath)
         SpyDEM.MonitorDEM(self.t, self.dem.partList, self.printNum, self.ascPath)
-        print('------------------------- Running --------------------------')
 
     def Solver(self):
         start = time.time()
@@ -53,19 +49,26 @@ class TimeIntegrationDEMPM:
             if self.t == 0:
                 self.Output(start)
                 self.printNum += 1
-            
+                self.dempm.DEMLoop.Time0()
+
             self.dempm.DEMPMneighborList.SumMPMParticles()
             self.dempm.DEMPMneighborList.BoardMPMNeighborList()
             self.dempm.DEMPMneighborList.BoardSearchP2M()
             self.dempm.DEMPMneighborList.FineSearchP2M()
-            self.dempm.DEMPMcontPair.Reset()
             self.dempm.MPMLoop.Flow()
-            self.dempm.DEMLoop.Flow(self.t)
+            self.dempm.DEMLoop.Flow()
 
-            if self.t % self.saveTime < self.dempm.Dt:
+            if self.saveTime - self.t % self.saveTime < self.dempm.Dt:
                 self.Output(start)
                 self.printNum += 1
 
+            self.dempm.DEMPMcontPair.Reset()
+            self.dempm.MPMEngine.Reset()
+            self.dempm.DEMEngine.Reset()
+            self.dem.contPair.Reset()
+
             self.t += self.dempm.Dt
             self.step += 1
+
+        print('Physical time = ', time.time() - start)
 

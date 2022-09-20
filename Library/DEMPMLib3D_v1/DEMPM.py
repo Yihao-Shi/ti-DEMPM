@@ -41,7 +41,8 @@ class DEMPM:
             "Kapa": float,                                                        # Barrier Scalar Parameters
             "limitDisp": float,                                                   # Maximum Microslip Displacement
             "Mu": float,                                                          # Friction coefficient
-            "visDamping": ti.types.vector(2, float)                               # Viscous damping
+            "NormalViscousDamping": float,                                        # Viscous Damping
+            "TangViscousDamping": float,                                          # Viscous Damping
         }, shape=(self.mpm.matNum,))
 
         self.DEMContactInfo = ti.Struct.field({                                   # List of contact parameters
@@ -53,17 +54,17 @@ class DEMPM:
         print('------------------------ DEMPM ContactModels Initialization ------------------------')
         if ti.static(self.CMtype == 0):
             self.DEMPMcontModel = PenaltyMethod.PenaltyMethod(self.dem.contModel, self.mpm.matList, self.Dt)
+            for nmpm in range(self.MPMContactInfo.shape[0]):
+                self.mpm.matList.DEMPMPenaltyMethod()
+                self.DEMPMcontModel.InitMPM(nmpm, self.MPMContactInfo)
         elif ti.static(self.CMtype == 1):
             self.DEMPMcontModel = BarrierMethod.BarrierMethod(self.dem.contModel, self.mpm.matList, self.Dt)
-
-        for nmpm in range(self.MPMContactInfo.shape[0]):
-            self.mpm.matList.DEMPMPenaltyMethod()
-            self.DEMPMcontModel.InitMPM(nmpm, self.MPMContactInfo)
-
-        for ndem in range(self.DEMContactInfo.shape[0]):
-            self.mpm.matList.DEMPMBarrierMethod()
-            self.dem.contModel.DEMPMBarrierMethod
-            self.DEMPMcontModel.InitDEM(ndem, self.DEMContactInfo)
+            for nmpm in range(self.MPMContactInfo.shape[0]):
+                self.mpm.matList.DEMPMPenaltyMethod()
+                self.DEMPMcontModel.InitMPM(nmpm, self.MPMContactInfo)
+            for ndem in range(self.DEMContactInfo.shape[0]):
+                self.dem.contModel.DEMPMBarrierMethod()
+                self.DEMPMcontModel.InitDEM(ndem, self.DEMContactInfo)
 
     def AddContactPair(self, max_dempm_contact_num):
         print('------------------------ DEMPM Contact Pair Initialization ------------------------')
@@ -87,27 +88,27 @@ class DEMPM:
             self.MainLoop.Solver()
         else:
             if ti.static(self.mpm.Algorithm == 0):
-                print("MPM Integration Scheme: GIMP\n")
-                self.MPMEngine = MPMEngine.USF(self.mpm.Gravity, self.mpm.threshold, self.mpm.partList, self.mpm.gridList, self.mpm.matList)
+                print("MPM Integration Scheme: USF\n")
+                self.MPMEngine = MPMEngine.USF(self.mpm.Gravity, self.mpm.threshold, self.mpm.Damp, self.mpm.alphaPIC, self.mpm.Dt[None], self.mpm.partList, self.mpm.gridList, self.mpm.matList)
                 self.MPMLoop = TimeIntegrationMPM.FlowUSF(self)
             elif ti.static(self.mpm.Algorithm == 1):
                 print("MPM Integration Scheme: USL\n")
-                self.MPMEngine = MPMEngine.USL(self.mpm.Gravity, self.mpm.threshold, self.mpm.partList, self.mpm.gridList, self.mpm.matList)
+                self.MPMEngine = MPMEngine.USL(self.mpm.Gravity, self.mpm.threshold, self.mpm.Damp, self.mpm.alphaPIC, self.mpm.Dt[None], self.mpm.partList, self.mpm.gridList, self.mpm.matList)
                 self.MPMLoop = TimeIntegrationMPM.FlowUSL(self)
             elif ti.static(self.mpm.Algorithm == 2):
                 print("MPM Integration Scheme: MUSL\n")
-                self.MPMEngine = MPMEngine.MUSL(self.mpm.Gravity, self.mpm.threshold, self.mpm.partList, self.mpm.gridList, self.mpm.matList)
+                self.MPMEngine = MPMEngine.MUSL(self.mpm.Gravity, self.mpm.threshold, self.mpm.Damp, self.mpm.alphaPIC, self.mpm.Dt[None], self.mpm.partList, self.mpm.gridList, self.mpm.matList)
                 self.MPMLoop = TimeIntegrationMPM.FlowMUSL(self)
             elif ti.static(self.mpm.Algorithm == 3):
                 print("MPM Integration Scheme: undeformed GIMP\n")
                 if ti.static(self.mpm.ShapeFunction != 1): 
                     print("!!ERROR: Shape Function must equal to 1")
                     assert 0
-                self.MPMEngine = MPMEngine.GIMP(self.mpm.Gravity, self.mpm.threshold, self.mpm.partList, self.mpm.gridList, self.mpm.matList)
+                self.MPMEngine = MPMEngine.GIMP(self.mpm.Gravity, self.mpm.threshold, self.mpm.Damp, self.mpm.alphaPIC, self.mpm.Dt[None], self.mpm.partList, self.mpm.gridList, self.mpm.matList)
                 self.MPMLoop = TimeIntegrationMPM.FlowGIMP(self)
             elif ti.static(self.mpm.Algorithm == 4):
                 print("MPM Integration Scheme: MLSMPM\n")
-                self.MPMEngine = MPMEngine.MLSMPM(self.mpm.Gravity, self.mpm.threshold, self.mpm.partList, self.mpm.gridList, self.mpm.matList)
+                self.MPMEngine = MPMEngine.MLSMPM(self.mpm.Gravity, self.mpm.threshold, self.mpm.Damp, self.mpm.alphaPIC, self.mpm.Dt[None], self.mpm.partList, self.mpm.gridList, self.mpm.matList)
                 self.MPMLoop = TimeIntegrationMPM.FlowMLSMPM(self)
 
             if ti.static(self.dem.Algorithm == 0):
