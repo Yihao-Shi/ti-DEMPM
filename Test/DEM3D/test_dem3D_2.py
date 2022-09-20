@@ -1,7 +1,7 @@
 from __init__ import *
 import DEMLib3D_v1.DEM as DEM
 import math
-ti.init(arch=ti.cpu, default_fp=ti.f32, debug=True)
+ti.init(arch=ti.cpu, default_fp=ti.f32, debug=False)
 
 
 # Test for Particle Rotation along a slope [tan(theta)=45 degree]
@@ -10,7 +10,7 @@ if __name__ == "__main__":
     dem = DEM.DEM(cmType=0,                                                 # /Contact model type/ 0 for linear model; 1 for hertz model; 2 for linear rolling model; 3 for linear bond model
                   domain=ti.Vector([10, 0.5, 10]),                             # domain size
                   boundary=ti.Vector([0, 0, 0]),                            # periodic boundary condition
-                  algorithm=0,                                              # /Integration scheme/ 0 for Euler; 1 for Verlet; 2 for sympletic
+                  algorithm=1,                                              # /Integration scheme/ 0 for Euler; 1 for Verlet; 2 for sympletic
                   gravity=ti.Vector([0., 0., -9.8]),                        # Gravity (body force)
                   timeStep=2.e-4,                                           # Time step
                   bodyNum=1,                                               # Taichi field of body parameters *Number of Body*
@@ -22,7 +22,11 @@ if __name__ == "__main__":
     # Physical parameters of particles
     dem.MatInfo[0].Kn = 1e6                                                 # Contact normal stiffness
     dem.MatInfo[0].Ks = 1e6                                                 # Contact tangential stiffness
-    dem.MatInfo[0].Mu = 0.8                                                 # Friction coefficient
+    dem.MatInfo[0].Kr = 1e5                                                 # Contact rolling stiffness
+    dem.MatInfo[0].Kt =1e5                                                  # Contact twisting stiffness
+    dem.MatInfo[0].Mu = 0.2                                                 # Friction coefficient
+    dem.MatInfo[0].Rmu = 0.05                                               # Rolling Friction coefficient
+    dem.MatInfo[0].Tmu = 0.05                                               # Twisting Friction coefficient
     dem.MatInfo[0].ForceLocalDamping = 0.7                                   # /Local damping/ 
     dem.MatInfo[0].TorqueLocalDamping = 0.                                  # /Local damping/ 
     dem.MatInfo[0].NormalViscousDamping = 0.                                # /Viscous damping/ 
@@ -66,9 +70,9 @@ if __name__ == "__main__":
     # Create MPM domain
     dem.AddContactModel()
     dem.AddBodies(max_particle_num=1)
-    dem.AddWall()
+    dem.AddWall(max_facet_num=2)
     dem.AddContactPair(max_contact_num=2)
-    dem.AddNeighborList(multiplier=2, max_potential_particle_pairs=1, max_potential_wall_pairs=2)
+    dem.AddNeighborList(multiplier=4, max_potential_particle_pairs=1, max_potential_wall_pairs=2)
 
     # Solve
     TIME: float = 0.5                                                         # Total simulation time

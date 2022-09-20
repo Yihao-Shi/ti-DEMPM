@@ -2,7 +2,7 @@ from __init__ import *
 import DEMLib3D_v1.DEM as DEM
 import DEMLib3D_v1.TimeIntegrationDEM as TimeIntegrationDEM
 import math
-ti.init(arch=ti.cpu, default_fp=ti.f32, debug=True)
+ti.init(arch=ti.cpu, default_fp=ti.f32, debug=False)
 
 
 # Test for Linear contact models // Friction
@@ -11,7 +11,7 @@ if __name__ == "__main__":
     dem = DEM.DEM(cmType=0,                                                 # /Contact model type/ 0 for linear model; 1 for hertz model; 2 for linear rolling model; 3 for linear bond model
                   domain=ti.Vector([20, 0.5, 0.5]),                             # domain size
                   boundary=ti.Vector([0, 0, 0]),                            # periodic boundary condition
-                  algorithm=0,                                              # /Integration scheme/ 0 for Euler; 1 for Verlet; 2 for sympletic
+                  algorithm=1,                                              # /Integration scheme/ 0 for Euler; 1 for Verlet; 2 for sympletic
                   gravity=ti.Vector([0., 0., -9.8]),                        # Gravity (body force)
                   timeStep=1.e-3,                                           # Time step
                   bodyNum=1,                                               # Taichi field of body parameters *Number of Body*
@@ -24,8 +24,10 @@ if __name__ == "__main__":
     dem.MatInfo[0].Kn = 1e6                                                 # Contact normal stiffness
     dem.MatInfo[0].Ks = 1e6                                                 # Contact tangential stiffness
     dem.MatInfo[0].Mu = 0.5                                                 # Friction coefficient
-    dem.MatInfo[0].localDamping = [0., 0.]                                  # /Local damping/ Translation & Rolling
-    dem.MatInfo[0].visDamping = [0., 0.]                                    # /Viscous damping/ Normal & Tangential
+    dem.MatInfo[0].ForceLocalDamping = 0.                                   # /Local damping/ 
+    dem.MatInfo[0].TorqueLocalDamping = 0.                                  # /Local damping/ 
+    dem.MatInfo[0].NormalViscousDamping = 0.                               # /Viscous damping/ 
+    dem.MatInfo[0].TangViscousDamping = 0.                                 # /Viscous damping/ 
     dem.MatInfo[0].ParticleRho = 2650                                       # Particle density
 
     # DEM body domain
@@ -57,9 +59,9 @@ if __name__ == "__main__":
     # Create MPM domain
     dem.AddContactModel()
     dem.AddBodies(max_particle_num=1)
-    dem.AddWall()
+    dem.AddWall(max_facet_num=1)
     dem.AddContactPair(max_contact_num=1)
-    dem.AddNeighborList(multiplier=2, max_potential_particle_pairs=1, max_potential_wall_pairs=1)
+    dem.AddNeighborList(multiplier=4, max_potential_particle_pairs=1, max_potential_wall_pairs=1)
 
     # Step1
     TIME: float = 1                                                         # Total simulation time

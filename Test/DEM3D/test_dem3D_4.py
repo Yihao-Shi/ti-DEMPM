@@ -1,13 +1,13 @@
 from __init__ import *
 import DEMLib3D_v1.DEM as DEM
 import math
-ti.init(arch=ti.cpu, default_fp=ti.f32, debug=True)
+ti.init(arch=ti.cpu, default_fp=ti.f32, debug=False)
 
 
 # Test for Linear contact models // Rotation
 if __name__ == "__main__":
     # DEM domain
-    dem = DEM.DEM(cmType=0,                                                 # /Contact model type/ 0 for linear model; 1 for hertz model; 2 for linear rolling model; 3 for linear bond model
+    dem = DEM.DEM(cmType=2,                                                 # /Contact model type/ 0 for linear model; 1 for hertz model; 2 for linear rolling model; 3 for linear bond model
                   domain=ti.Vector([0.31, 0.03, 0.24]),                     # domain size
                   boundary=ti.Vector([0, 0, 0]),                            # periodic boundary condition
                   algorithm=1,                                              # /Integration scheme/ 0 for Euler; 1 for Verlet; 2 for sympletic
@@ -22,7 +22,11 @@ if __name__ == "__main__":
     # Physical parameters of particles
     dem.MatInfo[0].Kn = 1e3                                                 # Contact normal stiffness
     dem.MatInfo[0].Ks = 1e3                                                 # Contact tangential stiffness
+    dem.MatInfo[0].Kr = 100                                                 # Contact rolling stiffness
+    dem.MatInfo[0].Kt =100                                                  # Contact twisting stiffness
     dem.MatInfo[0].Mu = 0.5                                                 # Friction coefficient
+    dem.MatInfo[0].Rmu = 0.05                                               # Rolling Friction coefficient
+    dem.MatInfo[0].Tmu = 0.05                                               # Twisting Friction coefficient
     dem.MatInfo[0].ForceLocalDamping = 0.05                                 # /Local damping/ 
     dem.MatInfo[0].TorqueLocalDamping = 0.05                                # /Local damping/ 
     dem.MatInfo[0].NormalViscousDamping = 0.2                               # /Viscous damping/ 
@@ -44,7 +48,7 @@ if __name__ == "__main__":
     dem.BodyInfo[0].fixedV = ti.Vector([0, 0, 0])                           # Fixed velocity
     dem.BodyInfo[0].fixedW = ti.Vector([0, 0, 0])                           # Fixed angular velocity
     dem.BodyInfo[0].orientation = ti.Vector([0, 0, 1])                      # Initial orientation
-    dem.BodyInfo[0].DT = ti.Vector([0, 10, 3.0])                           # DT
+    dem.BodyInfo[0].DT = ti.Vector([0, 0.3, 3.0])                           # DT
 
     dem.WallInfo[0].ID = 0                                                  # Body ID
     dem.WallInfo[0].Mat = 0                                                 # Material Name of Body
@@ -96,10 +100,10 @@ if __name__ == "__main__":
 
     # Solve
     TIME: float = 5                                                         # Total simulation time
-    saveTime: float = 0.01                                                  # save per time step
+    saveTime: float = 0.05                                                  # save per time step
     CFL = 0.5                                                               # Courant-Friedrichs-Lewy condition
-    vtkPath = './vtkDataTest3'                                              # VTK output path
-    ascPath = './vtkDataTest3/postProcessing'                               # Monitoring data path
+    vtkPath = './vtkDataTest4'                                              # VTK output path
+    ascPath = './vtkDataTest4/postProcessing'                               # Monitoring data path
 
     dem.Solver(TIME, saveTime, CFL, vtkPath, ascPath, adaptive=False)
 
