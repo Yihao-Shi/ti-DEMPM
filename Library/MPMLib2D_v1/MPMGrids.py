@@ -45,14 +45,13 @@ class GridList:
             self.x[ng] = pos
 
     # =========================================== MPM Grid Reset ============================================== #
-    @ti.kernel
+    @ti.func
     def GridReset(self, ng):
-        for ng in self.m:
-            if self.m[ng] > 0:
-                self.m[ng] = 0.
-                self.v[ng] = ti.Matrix.zero(float, 2)
-                self.mv[ng] = ti.Matrix.zero(float, 2)
-                self.f[ng] = ti.Matrix.zero(float, 2)
+        if self.m[ng] > 0:
+            self.m[ng] = 0.
+            self.v[ng] = ti.Matrix.zero(float, 2)
+            self.mv[ng] = ti.Matrix.zero(float, 2)
+            self.f[ng] = ti.Matrix.zero(float, 2)
 
     # ========================================== Boundary Condition =========================================== #
     @ti.func

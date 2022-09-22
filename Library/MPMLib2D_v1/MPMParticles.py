@@ -296,9 +296,9 @@ class ParticleList:
     @ti.func
     def ComputeShapeFuncs1(self, sType, np, activeID, nodeID, xg):
         SF, GS = 0., ti.Matrix.zero(float, 2)
-        if ti.static(sType == 0): SF, GS = ShFunc.Linear1(self.x[np], xg, self.Dx)
-        elif ti.static(sType == 2): SF, GS = ShFunc.BsplineQ1(self.x[np], xg, self.Dx, self.Domain)
-        elif ti.static(sType == 3): SF, GS = ShFunc.BsplineC1(self.x[np], xg, self.Dx, self.Domain)
+        if sType == 0: SF, GS = ShFunc.Linear1(self.x[np], xg, self.Dx)
+        elif sType == 2: SF, GS = ShFunc.BsplineQ1(self.x[np], xg, self.Dx, self.Domain)
+        elif sType == 3: SF, GS = ShFunc.BsplineC1(self.x[np], xg, self.Dx, self.Domain)
         if SF > 0.:
             self.LnID[np, activeID] = nodeID
             self.LnShape[np, activeID] = SF
@@ -308,9 +308,9 @@ class ParticleList:
     @ti.func
     def ComputeShapeFuncs2(self, sType, np, activeID, nodeID, xg):
         SF, GS, GSC = 0., ti.Matrix.zero(float, 2), ti.Matrix.zero(float, 2)
-        if ti.static(sType) == 0: SF, GS, GSC = ShFunc.Linear2(self.x[np], xg, self.Dx)
-        elif ti.static(sType) == 2: SF, GS, GSC = ShFunc.BsplineQ2(self.x[np], xg, self.Dx, self.Domain)
-        elif ti.static(sType) == 3: SF, GS, GSC = ShFunc.BsplineC2(self.x[np], xg, self.Dx, self.Domain)
+        if sType == 0: SF, GS, GSC = ShFunc.Linear2(self.x[np], xg, self.Dx)
+        elif sType == 2: SF, GS, GSC = ShFunc.BsplineQ2(self.x[np], xg, self.Dx, self.Domain)
+        elif sType == 3: SF, GS, GSC = ShFunc.BsplineC2(self.x[np], xg, self.Dx, self.Domain)
         if SF > 0.:
             self.LnID[np, activeID] = nodeID
             self.LnShape[np, activeID] = SF
@@ -394,7 +394,7 @@ class ParticleList:
     def ComputeDeformationGrad0(self, np, dt, matList):
         self.td[np] = (ti.Matrix.identity(float, 2) + self.gradv[np] * dt) @ self.td[np]
         matID = self.materialID[np]
-        if ti.static(matList.matType[matID] == 3): self.UpdateJacobianFromDet(np, dt)
+        if matList.matType[matID] == 3: self.UpdateJacobianFromDet(np, dt)
         else: self.UpdateJacobianFromGrad(np, dt)
     
     # ========================================================= #
@@ -431,10 +431,10 @@ class ParticleList:
 
     @ti.func
     def UpdateDeformationGrad(self, np, dt, matList, cellList, stablization, mode):
-        if ti.static(mode == 0): self.ComputeDeformationGrad0(np, dt, matList)
-        if ti.static(mode == 1 and stablization == 3):
+        if mode == 0: self.ComputeDeformationGrad0(np, dt, matList)
+        if mode == 1 and stablization == 3:
             self.ComputeDeformationGrad1(cellList, np, dt)
-        if ti.static(mode == 2 and stablization == 3):
+        if mode == 2 and stablization == 3:
             self.ComputeDeformationGrad2(cellList, np, dt)
             self.UpdateJacobianFromGrad(np, dt)
 

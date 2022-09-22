@@ -158,7 +158,7 @@ class MPM:
         return self.lp
 
     def AddCell(self):
-	    print('---------------------------------------- Cell Initialization ------------------------------------------')
+        print('---------------------------------------- Cell Initialization ------------------------------------------')
         self.cell = cell.CellList(self.Domain, self.Dx)                                                                  # List of mpm cells
         print('Cell Number = ', self.lg.gnum)
         self.cell.CellInit()
