@@ -105,4 +105,4 @@ def xor(a, b):
 
 @ti.func
 def HashValue(i, j):
-    return int((i + j) * (i + j + 1) / 2. + j)
+    return ti.u64((i + j) * (i + j + 1) / 2. + j)

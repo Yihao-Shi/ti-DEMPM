@@ -11,17 +11,13 @@ class DEMPMContactPair:
         self.endID2 = ti.field(int, shape=(max_dempm_contact_num,))
         self.cnforce = ti.Vector.field(3, float, shape=(max_dempm_contact_num,))
         self.ctforce = ti.Vector.field(3, float, shape=(max_dempm_contact_num,))
-        self.key = ti.field(int, shape=(max_dempm_contact_num,))
+        self.key = ti.field(ti.u64, shape=(max_dempm_contact_num,))
         self.RelTranslate = ti.Vector.field(3, float, shape=(max_dempm_contact_num,))
         self.contactNum0 = ti.field(int, shape=())
 
         self.DEMpartList = DEMpartList
         self.MPMpartList = MPMpartList
         self.DEMPMcontModel = DEMPMcontModel
-
-    @ti.func
-    def HashValue(self, i, j):
-        return int((i + j) * (i + j + 1) / 2. + j)
     
     @ti.func
     def ResetContactList(self, nc):
@@ -31,22 +27,32 @@ class DEMPMContactPair:
         self.ctforce[nc] = ti.Matrix.zero(float, 3)
 
     @ti.func
-    def ResetFtIntegration(self, nc):
-        if nc < self.contactNum0[None]:
-            self.key[nc] = self.HashValue(self.endID1[nc], self.DEMpartList.particleNum[None] + self.endID2[nc])
-            self.RelTranslate[nc] = self.ctforce[nc]
-        elif self.contactNum0[None] <= nc < self.contactNum[None]:
-            self.key[nc] = -1
-            self.RelTranslate[nc] = ti.Matrix.zero(float, 3)
+    def contact_key(self, nc):
+        return ti.u64(HashValue(self.endID1[nc], self.DEMpartList.particleNum[None] + self.endID2[nc]))
+
+    @ti.func
+    def copyHistory(self, nc):
+        self.key[nc] = self.contact_key(nc)
+        self.RelTranslate[nc] = self.ctforce[nc]
 
     @ti.kernel
     def Reset(self):
         for nc in range(self.contactNum[None]):
-            self.ResetContactList(nc)
-            self.ResetFtIntegration(nc)
-
+            self.copyHistory(nc)
+            #self.ResetContactList(nc)
+            
         self.contactNum0[None] = self.contactNum[None]
         self.contactNum[None] = 0
+
+    @ti.func
+    def HistTangInfo(self, nc):
+        key = self.contact_key(nc)
+        keyLoc = -1
+        for i in range(self.contactNum0[None]):
+            if self.key[i] == key:
+                keyLoc = i
+                break 
+        return keyLoc
         
     @ti.func
     def Contact(self, end1, end2, pos1, pos2, rad1, rad2):
@@ -66,13 +72,11 @@ class DEMPMContactPair:
         w1 = self.DEMpartList.w[end1]
         pos1 = self.DEMpartList.x[end1]
         vel2 = self.MPMpartList.v[end2]
-        pos2 = self.MPMpartList.x[end2]
         v_rel = vel1 + w1.cross(cpos - pos1) - vel2 
 
-        m_eff = EffectiveValue(self.DEMpartList.m[end1], self.MPMpartList.m[end2])
-
+        keyLoc = self.HistTangInfo(nc)
         self.DEMPMcontModel.ComputeContactNormalForce(self, nc, matID1, matID2, gapn, norm)
-        self.DEMPMcontModel.ComputeContactTangentialForce(self, nc, end1, end2, matID1, matID2, v_rel, norm, self.DEMpartList.particleNum[None])
+        self.DEMPMcontModel.ComputeContactTangentialForce(self, nc, end1, end2, matID1, matID2, v_rel, norm, keyLoc)
 
         Ftotal = self.cnforce[nc] + self.ctforce[nc]
         self.DEMpartList.Fc[end1] += Ftotal
