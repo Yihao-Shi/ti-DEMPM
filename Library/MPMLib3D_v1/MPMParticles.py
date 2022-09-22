@@ -1,7 +1,6 @@
 import taichi as ti
 from MPMLib3D_v1.Function import *
 import MPMLib3D_v1.ShapeFunctions as ShFunc
-import math
 
 
 @ti.data_oriented
@@ -70,7 +69,7 @@ class ParticleList:
         self.vol0[np] = (1./3. * (self.Dx[0] + self.Dx[1] + self.Dx[2]) / npic) ** 3
         self.vol[np] = self.vol0[np]
         self.m[np] = self.vol0[np] * bodyInfo[nb].MacroRho
-        self.rad[np] = 1./3. * (self.Dx[0] + self.Dx[1] + self.Dx[2]) / npic
+        self.rad[np] = 1./3. * (self.Dx[0] + self.Dx[1] + self.Dx[2]) / npic / 2.
         self.x[np] = pos
         self.v[np] = bodyInfo[nb].v0
         self.fixVel[np] = bodyInfo[nb].fixedV
@@ -87,7 +86,6 @@ class ParticleList:
     def PartcleInCellInit(self):
         for np in range(self.particleNum[None]):
             self.UpdateParticleInCell(np)
-            cellID = self.cellID[np]
 
     # ============================================ Reset ====================================================== #
     @ti.func
