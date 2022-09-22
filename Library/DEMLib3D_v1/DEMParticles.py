@@ -6,8 +6,9 @@ import math
 
 @ti.data_oriented
 class DEMParticle:
-    def __init__(self, max_particle_num, contModel, Gravity):
+    def __init__(self, domain, max_particle_num, contModel, Gravity):
         self.particleNum = ti.field(int, shape=[])
+        self.domain = domain
         self.max_particle_num = max_particle_num
         
         def Check():
@@ -73,6 +74,10 @@ class DEMParticle:
                 rmax = self.rad[np]
         return rmax
 
+    @ti.func
+    def CheckInDomain(self, np):
+        return all(ti.Matrix.zero(float, 3) <= self.x[np] <= self.domain)
+
     # =========================================== Particle Reset ====================================== #
     def UpdateParticleVel(self, particle_id, v):
         self.v[particle_id] = v
@@ -98,6 +103,40 @@ class DEMParticle:
     def ResetParicleDisp(self):
         for np in range(self.particleNum[None]):
             self.disp[np] = ti.Matrix.zero(float, 3)
+
+    @ti.kernel
+    def DeleteParticles(self):
+        remaining_particles = 0
+        ti.loop_config(serialize=True)
+        for np in range(self.particleNum[None]):
+            if self.CheckInDomain(np):
+                self.shapeType[remaining_particles] = self.shapeType[np]
+                self.ID[remaining_particles] = self.ID[np]
+                self.group[remaining_particles] = self.group[np]
+                self.materialID[remaining_particles] = self.materialID[np]
+                self.cellID[remaining_particles] = self.cellID[np]
+
+                self.m[remaining_particles] = self.m[np]
+                self.rad[remaining_particles] = self.rad[np]
+
+                self.x[remaining_particles] = self.x[np]
+                self.disp[remaining_particles] = self.disp[np]
+                self.v[remaining_particles] = self.v[np]
+                self.av[remaining_particles] = self.av[np]
+                self.Fex[remaining_particles] = self.Fex[np]
+                self.Fc[remaining_particles] = self.Fc[np]
+                self.fixedV[remaining_particles] = self.fixedV[np]
+                
+                self.theta[remaining_particles] = self.theta[np]
+                self.w[remaining_particles] = self.w[np]
+                self.aw[remaining_particles] = self.aw[np]
+                self.inv_I[remaining_particles] = self.inv_I[np]
+                self.Tc[remaining_particles] = self.Tc[np]
+                self.Tex[remaining_particles] = self.Tex[np]
+                self.fixedW[remaining_particles] = self.fixedW[np]
+                remaining_particles += 1
+
+        self.particleNum[None] = remaining_particles
 
     
     # =========================================== Particle Generation ====================================== #

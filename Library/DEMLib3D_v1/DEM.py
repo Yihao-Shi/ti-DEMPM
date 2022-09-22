@@ -109,7 +109,7 @@ class DEM:
         print('------------------------ Body Initialization ------------------------')
         self.max_particle_num = max_particle_num
         self.isClump = 0
-        self.partList = Particle.DEMParticle(max_particle_num, self.contModel, self.Gravity)
+        self.partList = Particle.DEMParticle(self.Domain, max_particle_num, self.contModel, self.Gravity)
         if self.bodyNum > 0:
             for nb in range(self.BodyInfo.shape[0]):
                 if ti.static(self.BodyInfo[nb].GenerateType == 0):

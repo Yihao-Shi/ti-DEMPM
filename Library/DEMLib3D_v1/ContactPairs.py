@@ -1,5 +1,4 @@
 import taichi as ti
-import math
 from DEMLib3D_v1.Function import *
 
 
@@ -15,10 +14,12 @@ class ContactPairs:
         self.norm = ti.Vector.field(3, float, shape=(max_contact_num,))
         self.cnforce = ti.Vector.field(3, float, shape=(max_contact_num,))
         self.ctforce = ti.Vector.field(3, float, shape=(max_contact_num,))
+        self.cdnforce = ti.Vector.field(3, float, shape=(max_contact_num,))
+        self.cdsforce = ti.Vector.field(3, float, shape=(max_contact_num,))
         self.Tr = ti.Vector.field(3, float, shape=(max_contact_num,))
         self.Tt = ti.Vector.field(3, float, shape=(max_contact_num,))
 
-        self.key = ti.field(int, shape=(max_contact_num,))
+        self.key = ti.field(ti.u64, shape=(max_contact_num,))
         self.RelTranslate = ti.Vector.field(3, float, shape=(max_contact_num,))
         self.contactNum0 = ti.field(int, shape=())
 
@@ -34,24 +35,26 @@ class ContactPairs:
         self.gapn[nc] = 0.
         self.cnforce[nc] = ti.Matrix.zero(float, 3)
         self.ctforce[nc] = ti.Matrix.zero(float, 3)
+        self.cdnforce[nc] = ti.Matrix.zero(float, 3)
+        self.cdsforce[nc] = ti.Matrix.zero(float, 3)
         self.Tr[nc] = ti.Matrix.zero(float, 3)
         self.Tt[nc] = ti.Matrix.zero(float, 3)
         self.norm[nc] = ti.Matrix.zero(float, 3)
 
     @ti.func
-    def ResetFtIntegration(self, nc):
-        if nc < self.contactNum[None]:
-            self.key[nc] = HashValue(self.TYPE[nc] * self.partList.particleNum[None] + self.endID1[nc], self.endID2[nc])
-            self.RelTranslate[nc] = self.ctforce[nc]
-        elif self.contactNum[None] <= nc < self.contactNum0[None]:
-            self.key[nc] = -1
-            self.RelTranslate[nc] = ti.Matrix.zero(float, 3)
+    def contact_key(self, nc):
+        return ti.u64(HashValue(self.TYPE[nc] * self.partList.particleNum[None] + self.endID1[nc], self.endID2[nc]))
+    
+    @ti.func
+    def copyHistory(self, nc):
+        self.key[nc] = self.contact_key(nc)
+        self.RelTranslate[nc] = self.ctforce[nc]
 
     @ti.kernel
     def Reset(self):
         for nc in range(self.contactNum[None]):
-            self.ResetFtIntegration(nc)
-            self.ResetContactList(nc)
+            self.copyHistory(nc)
+            #self.ResetContactList(nc)
 
         self.contactNum0[None] = self.contactNum[None]
         self.contactNum[None] = 0
@@ -74,8 +77,14 @@ class ContactPairs:
         self.ForceAssemble(nc, end1, end2, matID1, matID2, cpos)
 
     @ti.func
-    def ForceAssemble(self, nc):
-        pass 
+    def HistTangInfo(self, nc):
+        key = self.contact_key(nc)
+        keyLoc = -1
+        for i in range(self.contactNum0[None]):
+            if self.key[i] == key:
+                keyLoc = i
+                break 
+        return keyLoc
 
         
 @ti.data_oriented
@@ -83,8 +92,7 @@ class Linear(ContactPairs):
     def __init__(self, max_contact_num, partcleList, wallList, contModel):
         print("Contact Model: Linear Contact Model\n")
         super().__init__(max_contact_num, partcleList, wallList, contModel)
-        self.cdnforce = ti.Vector.field(3, float, shape=(max_contact_num,))
-        self.cdsforce = ti.Vector.field(3, float, shape=(max_contact_num,))
+        
 
     @ti.func
     def ForceAssemble(self, nc, end1, end2, matID1, matID2, cpos):
@@ -107,9 +115,10 @@ class Linear(ContactPairs):
             m_eff = EffectiveValue(self.partList.m[end1], self.partList.m[end2])
         elif self.TYPE[nc] == 1:
             m_eff = EffectiveValue(1e12, self.partList.m[end2])
-
+        
+        keyLoc = self.HistTangInfo(nc)
         self.contModel.ComputeContactNormalForce(self, nc, matID1, matID2, m_eff, v_rel)
-        self.contModel.ComputeContactTangentialForce(self, nc, matID1, matID2, m_eff, v_rel, self.partList.particleNum[None])
+        self.contModel.ComputeContactTangentialForce(self, nc, matID1, matID2, m_eff, v_rel, keyLoc)
 
         Ftotal = self.cnforce[nc] + self.ctforce[nc] + self.cdnforce[nc] + self.cdsforce[nc]
         if self.TYPE[nc] == 0:
@@ -157,10 +166,11 @@ class HertzMindlin(ContactPairs):
         pos2 = self.partList.x[end2]
         v_rel = vel1 + w1.cross(cpos - pos1) - (vel2 + w2.cross(cpos - pos2))
 
+        keyLoc = self.HistTangInfo(nc)
         self.contModel.ComputeContactNormalForce(self, nc, matID1, matID2, E1, E2, mu1, mu2, m_eff, rad_eff, v_rel)
-        self.contModel.ComputeContactTangentialForce(self, nc, matID1, matID2, E1, E2, mu1, mu2, m_eff, rad_eff, v_rel, self.partList.particleNum[None])
+        self.contModel.ComputeContactTangentialForce(self, nc, matID1, matID2, E1, E2, mu1, mu2, m_eff, rad_eff, v_rel, keyLoc)
 
-        Ftotal = self.cnforce[nc] + self.ctforce[nc]
+        Ftotal = self.cnforce[nc] + self.ctforce[nc] + self.cdnforce[nc] + self.cdsforce[nc]
         if self.TYPE[nc] == 0:
             self.partList.Fc[end1] += Ftotal
             self.partList.Tc[end1] += Ftotal.cross(self.partList.x[end1] - cpos) 
@@ -183,17 +193,11 @@ class LinearRollingResistance(Linear):
         self.RelTwist = ti.Vector.field(3, float, shape=(max_contact_num,))
 
     @ti.func
-    def ResetFtIntegration(self, nc):
-        if nc < self.contactNum[None]:
-            self.key[nc] = HashValue(self.TYPE[nc] * self.partList.particleNum[None] + self.endID1[nc], self.endID2[nc])
-            self.RelTranslate[nc] = self.ctforce[nc]
-            self.RelRolling[nc] = self.Fr[nc]
-            self.RelTwist[nc] = self.Ft[nc]
-        elif self.contactNum[None] <= nc < self.contactNum0[None]:
-            self.key[nc] = -1
-            self.RelTranslate[nc] = ti.Matrix.zero(float, 3)
-            self.RelRolling[nc] = ti.Matrix.zero(float, 3)
-            self.RelTwist[nc] = ti.Matrix.zero(float, 3)
+    def copyHistory(self, nc):
+        self.key[nc] = HashValue(self.TYPE[nc] * self.partList.particleNum[None] + self.endID1[nc], self.endID2[nc])
+        self.RelTranslate[nc] = self.ctforce[nc]
+        self.RelRolling[nc] = self.Fr[nc]
+        self.RelTwist[nc] = self.Ft[nc]
 
     @ti.func
     def ForceAssemble(self, nc, end1, end2, matID1, matID2, cpos):
@@ -219,10 +223,11 @@ class LinearRollingResistance(Linear):
             m_eff = self.partList.m[end2]
             rad_eff = self.partList.rad[end2]
 
+        keyLoc = self.HistTangInfo(nc)
         self.contModel.ComputeContactNormalForce(self, nc, matID1, matID2, m_eff, v_rel)
-        self.contModel.ComputeContactTangentialForce(self, nc, matID1, matID2, m_eff, v_rel, self.partList.particleNum[None])
-        self.contModel.ComputeRollingFriction(self, nc, matID1, matID2, w1, w2, m_eff, rad_eff, self.partList.particleNum[None])
-        self.contModel.ComputeTorsionFriction(self, nc, matID1, matID2, w1, w2, m_eff, rad_eff, self.partList.particleNum[None])
+        self.contModel.ComputeContactTangentialForce(self, nc, matID1, matID2, m_eff, v_rel, keyLoc)
+        self.contModel.ComputeRollingFriction(self, nc, matID1, matID2, w1, w2, rad_eff, keyLoc)
+        self.contModel.ComputeTorsionFriction(self, nc, matID1, matID2, w1, w2, rad_eff, keyLoc)
 
         Ftotal = self.cnforce[nc] + self.ctforce[nc]
         Ttotal = rad_eff * self.norm[nc].cross(self.Fr[nc]) + rad_eff * self.Ft[nc]

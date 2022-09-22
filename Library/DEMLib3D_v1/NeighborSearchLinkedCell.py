@@ -147,8 +147,8 @@ class NeighborSearchLinkedCell:
                 if master >= slave and state == 1: continue
                 if (pos2 - pos1).norm() <= rad1 + rad2 + self.verletDistance: 
                     count_pairs = ti.atomic_add(self.p2p[None], 1)
-                    self.potentialListP2P[count_pairs].end1 = master
-                    self.potentialListP2P[count_pairs].end2 = slave
+                    self.potentialListP2P[count_pairs].end1 = ti.min(master, slave)
+                    self.potentialListP2P[count_pairs].end2 = ti.max(master, slave)
 
     @ti.kernel
     def BoardSearchP2P(self):
