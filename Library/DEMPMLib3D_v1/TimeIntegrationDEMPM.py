@@ -1,8 +1,8 @@
 import taichi as ti
-import MPMLib3D_v1.Graphic as GraphicMPM
-import MPMLib3D_v1.Spying as SpyMPM
-import DEMLib3D_v1.Graphic as GraphicDEM
-import DEMLib3D_v1.Spying as SpyDEM
+import MPMLib3D.Graphic as GraphicMPM
+import MPMLib3D.Spying as SpyMPM
+import DEMLib3D.Graphic as GraphicDEM
+import DEMLib3D.Spying as SpyDEM
 import time
 
 @ti.data_oriented
@@ -46,17 +46,19 @@ class TimeIntegrationDEMPM:
     def Solver(self):
         start = time.time()
         while self.t <= self.TIME:
-            if self.t == 0:
-                self.Output(start)
-                self.printNum += 1
-                self.dempm.DEMLoop.Time0()
-
             self.dempm.DEMPMneighborList.SumMPMParticles()
             self.dempm.DEMPMneighborList.BoardMPMNeighborList()
             self.dempm.DEMPMneighborList.BoardSearchP2M()
             self.dempm.DEMPMneighborList.FineSearchP2M()
-            self.dempm.MPMLoop.Flow()
-            self.dempm.DEMLoop.Flow()
+
+            if self.t == 0:
+                self.Output(start)
+                self.printNum += 1
+                self.dempm.MPMLoop.Flow()
+                self.dempm.DEMLoop.Time0()
+            else:
+                self.dempm.MPMLoop.Flow()
+                self.dempm.DEMLoop.Flow()
 
             if self.saveTime - self.t % self.saveTime < self.dempm.Dt:
                 self.Output(start)

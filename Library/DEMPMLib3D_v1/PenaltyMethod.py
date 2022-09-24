@@ -1,4 +1,4 @@
-from DEMPMLib3D_v1.Function import *
+from Common.Function import *
 
 
 @ti.data_oriented
@@ -28,23 +28,25 @@ class PenaltyMethod:
         ContactPair.cnforce[nc] = kn * gapn * norm
 
     @ti.func
-    def ComputeContactTangentialForce(self, ContactPair, nc, end1, end2, matID1, matID2, v_rel, norm, keyLoc):
+    def ComputeContactTangentialForce(self, ContactPair, nc, matID1, matID2, v_rel, norm, keyLoc):
+        miu = ti.min(self.DEMcontModel.Mu[matID1], self.MPMmatList.Mu[matID2])
+        fn = ContactPair.cnforce[nc]
         ks = EffectiveValue(self.DEMcontModel.ks[matID1], self.MPMmatList.ks[matID2])
+
         vs = v_rel - v_rel.dot(norm) * norm  
         trial_ft = -ks * vs * self.dt 
 
-        if keyLoc >= 0:
-            ft_ori = ContactPair.RelTranslate[keyLoc] - ContactPair.RelTranslate[keyLoc].dot(norm) * norm
-            ft_temp = ContactPair.RelTranslate[keyLoc].norm() * Normalize(ft_ori)
+        if keyLoc != -1:
+            TangForceOld = ContactPair.TangForceMap.map[keyLoc]
+            ft_ori = TangForceOld - TangForceOld.dot(norm) * norm
+            ft_temp = TangForceOld.norm() * Normalize(ft_ori)
             trial_ft = trial_ft + ft_temp
         
-        miu = ti.min(self.DEMcontModel.Mu[matID1], self.MPMmatList.Mu[matID2])
-        fric = miu * ContactPair.cnforce[nc].norm()
+        
+        fric = miu * fn.norm()
         if trial_ft.norm() > fric:
             ContactPair.ctforce[nc] = fric * trial_ft.normalized()
-            #print(nc, end1, end2, keyLoc, ContactPair.cnforce[nc], ContactPair.ctforce[nc], ContactPair.cnforce[nc].norm(), ContactPair.ctforce[nc].norm(), 1, '\n')
         else:
             ContactPair.ctforce[nc] = trial_ft 
-            #print(nc, end1, end2, keyLoc, ContactPair.cnforce[nc], ContactPair.ctforce[nc], ContactPair.cnforce[nc].norm(), ContactPair.ctforce[nc].norm(), 2)
-
+          
 

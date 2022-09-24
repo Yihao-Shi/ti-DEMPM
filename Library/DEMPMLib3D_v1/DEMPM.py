@@ -1,13 +1,13 @@
-from DEMPMLib3D_v1.Function import *
-import DEMPMLib3D_v1.PenaltyMethod as PenaltyMethod
-import DEMPMLib3D_v1.BarrierMethod as BarrierMethod
-import DEMPMLib3D_v1.DEMPMContactPairs as DEMPMContactPair
-import DEMPMLib3D_v1.NeighborSearchMultiLinkedCell as NeighborSearchMultiLinkedCell
-import DEMLib3D_v1.DEMEngine as DEMEngine
-import MPMLib3D_v1.MPMEngine as MPMEngine
-import DEMLib3D_v1.TimeIntegrationDEM as TimeIntegrationDEM
-import MPMLib3D_v1.TimeIntegrationMPM as TimeIntegrationMPM
-import DEMPMLib3D_v1.TimeIntegrationDEMPM as TimeIntegrationDEMPM
+from Common.Function import *
+import DEMPMLib3D.PenaltyMethod as PenaltyMethod
+import DEMPMLib3D.BarrierMethod as BarrierMethod
+import DEMPMLib3D.DEMPMContactPairs as DEMPMContactPair
+import DEMPMLib3D.NeighborSearchMultiLinkedCell as NeighborSearchMultiLinkedCell
+import DEMLib3D.DEMEngine as DEMEngine
+import MPMLib3D.MPMEngine as MPMEngine
+import DEMLib3D.TimeIntegrationDEM as TimeIntegrationDEM
+import MPMLib3D.TimeIntegrationMPM as TimeIntegrationMPM
+import DEMPMLib3D.TimeIntegrationDEMPM as TimeIntegrationDEMPM
 
 
 @ti.data_oriented
