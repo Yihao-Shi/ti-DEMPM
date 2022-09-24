@@ -1,6 +1,6 @@
 import taichi as ti
 import math
-from DEMLib3D_v1.Function import *
+from Common.Function import *
 
 
 @ti.data_oriented
@@ -71,31 +71,37 @@ class LinearContactModel(ContactModel):
     @ti.func
     def ComputeContactNormalForce(self, ContactPair, nc, matID1, matID2, m_eff, v_rel):
         kn = EffectiveValue(self.kn[matID1], self.kn[matID2])
-        ContactPair.cnforce[nc] = kn * ContactPair.gapn[nc] * ContactPair.norm[nc] 
-
-        vn = v_rel.dot(ContactPair.norm[nc]) * ContactPair.norm[nc]
         ndratio = ti.min(self.NormalViscousDamping[matID1], self.NormalViscousDamping[matID2])
+        gapn = ContactPair.gapn[nc]
+        norm = ContactPair.norm[nc]
+
+        ContactPair.cnforce[nc] = kn * gapn * norm
+        vn = v_rel.dot(norm) * norm
         ContactPair.cdnforce[nc] = -2 * ndratio * ti.sqrt(m_eff * kn) * vn
 
     @ti.func
     def ComputeContactTangentialForce(self, ContactPair, nc, matID1, matID2, m_eff, v_rel, keyLoc):
         ks = EffectiveValue(self.ks[matID1], self.ks[matID2])
-        vs = v_rel - v_rel.dot(ContactPair.norm[nc]) * ContactPair.norm[nc]  
-        trial_ft = -ks * vs * self.dt 
+        miu = ti.min(self.Mu[matID1], self.Mu[matID2])
+        nsratio = ti.min(self.TangViscousDamping[matID1], self.TangViscousDamping[matID2])
+        norm = ContactPair.norm[nc]
+        fn = ContactPair.cnforce[nc]
 
-        if keyLoc >= 0:
-            ft_ori = ContactPair.RelTranslate[keyLoc] - ContactPair.RelTranslate[keyLoc].dot(ContactPair.norm[nc]) * ContactPair.norm[nc]
-            ft_temp = ContactPair.RelTranslate[keyLoc].norm() * Normalize(ft_ori)
+        vs = v_rel - v_rel.dot(norm) * norm
+        trial_ft = -ks * vs * self.dt 
+        
+        if keyLoc != -1:
+            TangForceOld = ContactPair.TangForceMap.map[keyLoc]
+            ft_ori = TangForceOld - TangForceOld.dot(norm) * norm
+            ft_temp = TangForceOld.norm() * Normalize(ft_ori)
             trial_ft = trial_ft + ft_temp
         
-        miu = ti.min(self.Mu[matID1], self.Mu[matID2])
-        fric = miu * ContactPair.cnforce[nc].norm()
+        fric = miu * fn.norm()
         if trial_ft.norm() > fric:
             ContactPair.ctforce[nc] = fric * trial_ft.normalized()
         else:
             ContactPair.ctforce[nc] = trial_ft 
 
-        nsratio = ti.min(self.TangViscousDamping[matID1], self.TangViscousDamping[matID2])
         ContactPair.cdsforce[nc] = -2 * nsratio * ti.sqrt(m_eff * ks) * vs
 
 
@@ -138,27 +144,36 @@ class HertzMindlinContactModel(ContactModel):
 
     @ti.func
     def ComputeContactNormalForce(self, ContactPair, nc, matID1, matID2, E1, E2, mu1, mu2, m_eff, rad_eff, v_rel):
+        gapn = ContactPair.gapn[nc]
+        norm = ContactPair.norm[nc]
+
         E = 1. / ((1 - mu1 * mu1) / E1 + (1 - mu2 * mu2) / E2)
-        kn = 2 * E * ti.sqrt(ContactPair.gapn[nc] * rad_eff)
+        kn = 2 * E * ti.sqrt(gapn * rad_eff)
         res = self.DampingRatio(matID1, matID2)
-        ContactPair.cnforce[nc] = 2./3. * kn * ContactPair.gapn[nc] * ContactPair.norm[nc]
-        ContactPair.cdnforce[nc] = 1.8257 * res * v_rel.norm() * ti.sqrt(kn * m_eff) * sgn(v_rel.dot(ContactPair.norm[nc])) * ContactPair.norm[nc] 
+
+        ContactPair.cnforce[nc] = 2./3. * kn * gapn * norm
+        ContactPair.cdnforce[nc] = 1.8257 * res * v_rel.norm() * ti.sqrt(kn * m_eff) * sgn(v_rel.dot(norm)) * norm
 
     @ti.func
     def ComputeContactTangentialForce(self, ContactPair, nc, matID1, matID2, G1, G2, mu1, mu2, m_eff, rad_eff, v_rel, keyLoc):
         res = self.DampingRatio(matID1, matID2)
-        G = 1. / ((2 - mu1) / G1 + (2 - mu2) / G2)
-        ks = 8 * G * ti.sqrt(ContactPair.gapn[nc] * rad_eff)
-        vs = v_rel - v_rel.dot(ContactPair.norm[nc]) * ContactPair.norm[nc]  
-        trial_ft = -ks * vs * self.dt
+        miu = ti.min(self.Mu[matID1], self.Mu[matID2])
+        gapn = ContactPair.gapn[nc]
+        norm = ContactPair.norm[nc]
+        fn = ContactPair.cnforce[nc]
 
-        if keyLoc >= 0:
-            ft_ori = ContactPair.RelTranslate[keyLoc] - ContactPair.RelTranslate[keyLoc].dot(ContactPair.norm[nc]) * ContactPair.norm[nc]
-            ft_temp = ContactPair.RelTranslate[keyLoc].norm() * Normalize(ft_ori)
+        G = 1. / ((2 - mu1) / G1 + (2 - mu2) / G2)
+        ks = 8 * G * ti.sqrt(gapn * rad_eff)
+        vs = v_rel - v_rel.dot(norm) * norm
+        trial_ft = -ks * vs * self.dt
+        
+        if keyLoc != -1:
+            TangForceOld = ContactPair.TangForceMap.map[keyLoc]
+            ft_ori = TangForceOld - TangForceOld.dot(norm) * norm
+            ft_temp = TangForceOld.norm() * Normalize(ft_ori)
             trial_ft = trial_ft + ft_temp
         
-        miu = ti.min(self.Mu[matID1], self.Mu[matID2])
-        fric = miu * ContactPair.cnforce[nc].norm()
+        fric = miu * fn.norm()
         if trial_ft.norm() > fric:
             ContactPair.ctforce[nc] = fric * trial_ft.normalized()
         else:
@@ -207,17 +222,21 @@ class LinearRollingResistanceContactModel(LinearContactModel):
     # Luding (2008) Introduction to discrete element method
     @ti.func
     def ComputeRollingFriction(self, ContactPair, nc, matID1, matID2, w1, w2, rad_eff, keyLoc):
-        vr = -rad_eff * ContactPair.norm[nc].cross(w1 - w2)
+        norm = ContactPair.norm[nc]
+        rmiu = ti.min(self.RMu[matID1], self.RMu[matID2])
         kr = EffectiveValue(self.kr[matID1], self.kr[matID2])
+        fn = ContactPair.cnforce[nc]
+
+        vr = -rad_eff * norm.cross(w1 - w2)
         trial_fr = -kr * vr * self.dt 
         
-        if keyLoc >= 0:
-            fr_pre = ContactPair.RelRolling[keyLoc] - ContactPair.RelRolling[keyLoc].dot(ContactPair.norm[nc]) * ContactPair.norm[nc]
-            fr_temp = ContactPair.RelRolling[keyLoc].norm() * Normalize(fr_pre)
+        if keyLoc != -1:
+            TangRollingOld = ContactPair.TangRollingMap.map[keyLoc]
+            fr_pre = TangRollingOld - TangRollingOld.dot(norm) * norm
+            fr_temp = TangRollingOld.norm() * Normalize(fr_pre)
             trial_fr = trial_fr + fr_temp
         
-        rmiu = ti.min(self.RMu[matID1], self.RMu[matID2])
-        fricRoll = rmiu * ContactPair.cnforce[nc].norm()
+        fricRoll = rmiu * fn.norm()
         if trial_fr.norm() > fricRoll:
             ContactPair.Fr[nc] = fricRoll * trial_fr.normalized()
         else:
@@ -227,17 +246,21 @@ class LinearRollingResistanceContactModel(LinearContactModel):
     # J. S. Marshall (2009) Discrete-element modeling of particulate aerosol flows /JCP/
     @ti.func
     def ComputeTorsionFriction(self, ContactPair, nc, matID1, matID2, w1, w2, rad_eff, keyLoc):
-        vt = rad_eff * (w1 - w2).dot(ContactPair.norm[nc]) * ContactPair.norm[nc]
-        kt = EffectiveValue(self.kt[matID1], self.kt[matID2])
-        trial_ft = -kt * vt * self.dt
-
-        if keyLoc >= 0:
-            ft_pre = ContactPair.RelTwist[keyLoc].dot(ContactPair.norm[nc]) * ContactPair.norm[nc]
-            ft_temp = ContactPair.RelTwist[keyLoc].norm() * Normalize(ft_pre)
-            trial_ft = trial_ft + ft_temp
-        
+        norm = ContactPair.norm[nc]
         tmiu = ti.min(self.TMu[matID1], self.TMu[matID2])
-        fricTwist = tmiu * ContactPair.cnforce[nc].norm()
+        kt = EffectiveValue(self.kt[matID1], self.kt[matID2])
+        fn = ContactPair.cnforce[nc]
+
+        vt = rad_eff * (w1 - w2).dot(norm) * norm
+        trial_ft = -kt * vt * self.dt
+        
+        if keyLoc != -1:
+            TangTwistingOld = ContactPair.TangTwistingMap.map[keyLoc]
+            ft_pre = TangTwistingOld.dot(TangTwistingOld) * norm
+            ft_temp = TangTwistingOld.norm() * Normalize(ft_pre)
+            trial_ft = trial_ft + ft_temp
+
+        fricTwist = tmiu * fn.norm()
         if trial_ft.norm() > fricTwist:
             ContactPair.Ft[nc] = fricTwist * trial_ft.normalized()
         else:

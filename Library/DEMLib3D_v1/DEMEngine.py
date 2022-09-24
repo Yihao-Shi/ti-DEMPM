@@ -1,7 +1,6 @@
 import taichi as ti
-from DEMLib3D_v1.Function import *
-import DEMLib3D_v1.Quaternion as Quaternion
-import numpy 
+from Common.Function import *
+import DEMLib3D.Quaternion as Quaternion
 
 
 @ti.data_oriented
@@ -11,12 +10,6 @@ class IntegrationScheme:
         self.dt = dt
         self.partList = partList
         self.contModel = contModel
-
-    @ti.kernel
-    def IntegrationInit(self):
-        for np in range(self.partList.particleNum[None]):
-            self.partList.av[np] = self.partList.Fex[np] / self.partList.m[np] + self.gravity
-            self.partList.aw[np] = self.partList.Tex[np] * self.partList.inv_I[np]
 
     @ti.kernel
     def Reset(self):
@@ -29,7 +22,7 @@ class IntegrationScheme:
         i_intertia = self.partList.inv_I[np]
         intertia = self.partList.inv_I[np].inverse()
         for d in ti.static(range(3)):
-            aw_local[d] = T_local[d] - (aw_local[(d+1)%3] * intertia[(d+2)%3] * aw_local[(d+2)%3] - aw_local[(d+2)%3] * intertia[(d+1)%3] * aw_local[(d+1)%3]) * i_intertia[j]
+            aw_local[d] = T_local[d] - (aw_local[(d+1)%3] * intertia[(d+2)%3] * aw_local[(d+2)%3] - aw_local[(d+2)%3] * intertia[(d+1)%3] * aw_local[(d+1)%3]) * i_intertia[d]
         return aw_local
 
 
@@ -47,7 +40,7 @@ class IntegrationScheme:
 class Euler(IntegrationScheme):
     def __init__(self, gravity, dt, partList, contModel):
         super().__init__(gravity, dt, partList, contModel)
-    
+
     @ti.func
     def ParticleTranslation(self, np):
         matID = self.partList.materialID[np]
@@ -55,8 +48,9 @@ class Euler(IntegrationScheme):
 
         generalForce = self.partList.Fc[np] + self.partList.Fex[np] + self.gravity * self.partList.m[np]
         force = (generalForce - ForceLocalDamping * generalForce.norm() * Normalize(self.partList.v[np]))
-        self.partList.av[np] = force / self.partList.m[np] * Zero2OneVector(self.partList.fixedV[np])
-        self.partList.v[np] += self.dt * self.partList.av[np]
+        av = force / self.partList.m[np] * Zero2OneVector(self.partList.fixedV[np])
+        self.partList.v[np] += self.dt * av
+        self.partList.av[np] = av
 
         self.partList.x[np] += self.partList.v[np] * self.dt 
         self.partList.disp[np] += self.partList.v[np] * self.dt 
@@ -67,9 +61,10 @@ class Euler(IntegrationScheme):
         TorqueLocalDamping = self.contModel.TorqueLocalDamping[matID]
 
         generalTorque = self.partList.Tex[np] + self.partList.Tc[np]
-        torque =  (generalTorque - TorqueLocalDamping * generalTorque.norm() * Normalize(self.partList.w[np]))
-        self.partList.aw[np] = torque * self.partList.inv_I[np] * Zero2OneVector(self.partList.fixedW[np])
-        self.partList.w[np] += self.dt * self.partList.aw[np]
+        torque = (generalTorque - TorqueLocalDamping * generalTorque.norm() * Normalize(self.partList.w[np]))
+        aw = torque * self.partList.inv_I[np] * Zero2OneVector(self.partList.fixedW[np])
+        self.partList.w[np] += self.dt * aw
+        self.partList.aw[np] = aw
 
         self.partList.theta[np] += (self.partList.w[np] * self.dt).norm() 
 
@@ -88,7 +83,13 @@ class Verlet(IntegrationScheme):
         super().__init__(gravity, dt, partList, contModel)
 
     @ti.kernel
-    def HalfStep(self):
+    def IntegrationInit(self):
+        for np in range(self.partList.particleNum[None]):
+            self.partList.av[np] = self.partList.Fex[np] / self.partList.m[np] + self.gravity
+            self.partList.aw[np] = self.partList.Tex[np] * self.partList.inv_I[np]
+
+    @ti.kernel
+    def ClumpRotationInit(self):
         for np in range(self.partList.particleNum[None]):
             am_local = self.rotate[np] @ self.partList.Am[np]
             T_local = self.partList.rotate[np] @ self.partList.Tex[np]
@@ -100,18 +101,15 @@ class Verlet(IntegrationScheme):
             self.partList.q[np] += 0.5 * d_qt * self.dt
             self.partList.Am[np] += 0.5 * self.partList.Tex[np] * self.dt
 
-
     @ti.kernel
     def IntegrationPredictor(self):
         for np in range(self.partList.particleNum[None]):
             self.partList.x[np] += self.partList.v[np] * self.dt + 0.5 * self.partList.av[np] * self.dt * self.dt
-            # Todo: Periodic condition
-
+            self.partList.v[np] += 0.5 * self.dt * self.partList.av[np]
             self.partList.disp[np] += self.partList.v[np] * self.dt + 0.5 * self.partList.av[np] * self.dt * self.dt
-            # Predictor: v = v + 0.5 * av0 * t ^ 2
             
             self.partList.theta[np] += self.partList.w[np] * self.dt + 0.5 * self.partList.aw[np] * self.dt * self.dt
-            # Predictor: w = w + 0.5 * aw0 * t ^ 2
+            self.partList.w[np] += 0.5 * self.dt * self.partList.aw[np]
 
     
     @ti.kernel
@@ -120,11 +118,10 @@ class Verlet(IntegrationScheme):
             matID = self.partList.materialID[np]
             TorqueLocalDamping = self.contModel.TorqueLocalDamping[matID]
 
-            aw0 = self.partList.aw[np]
             generalTorque = self.partList.Tex[np] + self.partList.Tc[np]
-            torque =  (generalTorque - TorqueLocalDamping * generalTorque.norm() * Normalize(self.partList.w[np]))
+            torque = (generalTorque - TorqueLocalDamping * generalTorque.norm() * Normalize(self.partList.w[np]))
             aw = torque * self.partList.inv_I[np] * Zero2OneVector(self.partList.fixedW[np])
-            self.partList.w[np] += 0.5 * self.dt * (aw + aw0)
+            self.partList.w[np] += 0.5 * self.dt * aw
             self.partList.aw[np] = aw
 
 
@@ -136,12 +133,12 @@ class Verlet(IntegrationScheme):
             generalTorque = self.partList.Tex[np] + self.partList.Tc[np]
             torque =  (generalTorque - TorqueLocalDamping * generalTorque.norm() * Normalize(self.partList.w[np]))
 
-            Lt = self.partList.rotate[np] @ (self.partList.Am[np] + 0.5 * self.dt * generalTorque)
-            Lmid = self.partList.rotate[np] @ (self.partList.Am[np] + self.dt * generalTorque)
+            Lt = self.partList.rotate[np] @ (self.partList.Am[np] + 0.5 * self.dt * torque)
+            Lmid = self.partList.rotate[np] @ (self.partList.Am[np] + self.dt * torque)
             wt = self.partList.inv_I[np] @ Lt
             wmid = self.partList.inv_I[np] @ Lmid
             self.partList.w[np] = self.partList.rotate[np].inverse() @ wmid
-            self.partList.Am[np] += self.dt * generalTorque * Zero2OneVector(self.partList.fixedW[np])
+            self.partList.Am[np] += self.dt * torque * Zero2OneVector(self.partList.fixedW[np])
 
             self.UpdateQuanternion(np, wt, wmid)
 
@@ -151,12 +148,90 @@ class Verlet(IntegrationScheme):
         for np in range(self.partList.particleNum[None]):
             matID = self.partList.materialID[np]
             ForceLocalDamping = self.contModel.ForceLocalDamping[matID]
-            av0 = self.partList.av[np]
+
             generalForce = self.partList.Fc[np] + self.partList.Fex[np] + self.gravity * self.partList.m[np]
             force = (generalForce - ForceLocalDamping * generalForce.norm() * Normalize(self.partList.v[np]))
             av = force / self.partList.m[np] * Zero2OneVector(self.partList.fixedV[np])
-            self.partList.v[np] += 0.5 * self.dt * (av0 + av)
+            self.partList.v[np] += 0.5 * self.dt * av
             self.partList.av[np] = av
+
+
+@ti.data_oriented
+class LeapFrog(IntegrationScheme):
+    def __init__(self, gravity, dt, partList, contModel):
+        super().__init__(gravity, dt, partList, contModel) 
+
+    @ti.kernel
+    def SphereHalfStep(self):
+        for np in range(self.partList.particleNum[None]):
+            self.partList.av[np] = self.partList.Fex[np] / self.partList.m[np] + self.gravity
+            self.partList.aw[np] = self.partList.Tex[np] * self.partList.inv_I[np]
+            self.v[np] = 0.5 * self.dt * self.partList.av[np]
+            self.w[np] = 0.5 * self.dt * self.partList.aw[np]
+
+    @ti.kernel
+    def ClumpHalfStep(self):
+        for np in range(self.partList.particleNum[None]):
+            self.partList.av[np] = self.partList.Fex[np] / self.partList.m[np] + self.gravity
+            self.partList.aw[np] = self.partList.inv_I[np] @ self.partList.Tex[np] 
+            self.v[np] = 0.5 * self.dt * self.partList.av[np]
+            self.w[np] = 0.5 * self.dt * self.partList.aw[np]
+            
+            self.partList.Am[np] += 0.5 * self.partList.Tex[np] * self.dt
+            d_qt = 0.5 * self.partList.q[np] * (self.partList.inv_I[np].inverse() @ self.partList.Am[np])
+            self.partList.q[np] += 0.5 * d_qt * self.dt
+
+    @ti.func
+    def ParticleTranslation(self, np):
+        matID = self.partList.materialID[np]
+        ForceLocalDamping = self.contModel.ForceLocalDamping[matID]
+
+        generalForce = self.partList.Fc[np] + self.partList.Fex[np] + self.gravity * self.partList.m[np]
+        force = (generalForce - ForceLocalDamping * generalForce.norm() * Normalize(self.partList.v[np]))
+        av = force / self.partList.m[np] * Zero2OneVector(self.partList.fixedV[np])
+        self.partList.v[np] += self.dt * av
+        self.partList.av[np] = av
+
+        self.partList.x[np] += self.partList.v[np] * self.dt 
+        self.partList.disp[np] += self.partList.v[np] * self.dt 
+
+    @ti.func
+    def SphereRotation(self, np):
+        matID = self.partList.materialID[np]
+        TorqueLocalDamping = self.contModel.TorqueLocalDamping[matID]
+
+        generalTorque = self.partList.Tex[np] + self.partList.Tc[np]
+        torque = (generalTorque - TorqueLocalDamping * generalTorque.norm() * Normalize(self.partList.w[np]))
+        aw = torque * self.partList.inv_I[np] * Zero2OneVector(self.partList.fixedW[np])
+        self.partList.w[np] += self.dt * aw
+        self.partList.aw[np] = aw
+
+        self.partList.theta[np] += (self.partList.w[np] * self.dt).norm() 
+
+    @ti.kernel
+    def ClumpRotation(self):
+        for np in range(self.partList.particleNum[None]):
+            matID = self.partList.materialID[np]
+            TorqueLocalDamping = self.contModel.TorqueLocalDamping[matID]
+            generalTorque = self.partList.Tex[np] + self.partList.Tc[np]
+            torque =  (generalTorque - TorqueLocalDamping * generalTorque.norm() * Normalize(self.partList.w[np]))
+
+            Lt = self.partList.rotate[np] @ (self.partList.Am[np] + 0.5 * self.dt * torque)
+            Lmid = self.partList.rotate[np] @ (self.partList.Am[np] + self.dt * torque)
+            wt = self.partList.inv_I[np] @ Lt
+            wmid = self.partList.inv_I[np] @ Lmid
+            self.partList.w[np] = self.partList.rotate[np].inverse() @ wmid
+            self.partList.Am[np] += self.dt * torque * Zero2OneVector(self.partList.fixedW[np])
+
+            self.UpdateQuanternion(np, wt, wmid)
+
+    @ti.kernel
+    def Integration(self):
+        for np in range(self.partList.particleNum[None]):
+            self.ParticleTranslation(np)
+            self.SphereRotation(np)  
+
+            # Todo: Periodic condition    
 
 
 @ti.data_oriented

@@ -1,5 +1,5 @@
 import taichi as ti
-import DEMLib3D_v1.Aabb as Aabb
+import DEMLib3D.Aabb as Aabb
 
 
 @ti.data_oriented
@@ -90,6 +90,7 @@ class NeighborSearchLinkedCell:
 
         for np in range(self.partList.particleNum[None]):
             cellID = self.GetCellID(self.partList.x[np][0] // self.gridsize, self.partList.x[np][1] // self.gridsize, self.partList.x[np][2] // self.gridsize)
+            if cellID < 0: print(np, self.partList.x[np])
             self.grain_count[cellID] += 1
             self.partList.cellID[np] = cellID
 
@@ -199,7 +200,7 @@ class NeighborSearchLinkedCell:
             rad1 = self.partList.rad[end1]  
             rad2 = self.partList.rad[end2]   
             if (pos2 - pos1).norm() < rad1 + rad2:     
-                self.contPair.Contact(end1, end2, pos1, pos2, rad1, rad2, TYPE=0)
+                self.contPair.ContactPP(end1, end2, pos1, pos2, rad1, rad2, TYPE=0)
 
     # ============================================ Wall ================================================= #
     @ti.func
@@ -242,7 +243,7 @@ class NeighborSearchLinkedCell:
                 overlap = self.partList.rad[end2] - dist
 
             if overlap > 0. and self.IsInPlane(self.wallList.p1[end1], self.wallList.p2[end1], self.wallList.p3[end1], self.wallList.p4[end1], contPoint):
-                self.contPair.Contact(end1, end2, contPoint, self.partList.x[end2], 0, self.partList.rad[end2], TYPE=1)
+                self.contPair.ContactPW(end1, end2, contPoint, self.partList.x[end2], 0, self.partList.rad[end2], TYPE=1)
 
 
 @ti.data_oriented

@@ -1,6 +1,6 @@
 import taichi as ti
-import DEMLib3D_v1.Quaternion as Quaternion
-import DEMLib3D_v1.DEM_paricles as DEMParticle
+import DEMLib3D.Quaternion as Quaternion
+import DEMLib3D.DEM_paricles as DEMParticle
 import numpy 
 import math
 
