@@ -5,11 +5,11 @@ A high performance objected-oriented Discrete Element Method- Material Point Met
 
 ## Features
 ### Discrete Element Method 
-- only spherical particles supported)
+  - only spherical particles supported)
 
-- Search Algorithm
-1. Sorted based
-2. Multilevel linked cell
+  - Search Algorithm
+    1. Sorted based
+    2. Multilevel linked cell
 
 ### Material Point Method 
 - Constitutive Model
@@ -57,7 +57,7 @@ sudo gedit ~/.bashrc
 ```
 Add the installation path to bashrc file:
 ```
-export tiDEMPM=~/tiDEMPM
+export tiDEMPM=/user_path/tiDEMPM
 ```
 
 ## Acknowledgememt
