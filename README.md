@@ -55,7 +55,7 @@ bash requirements.sh
 ```
 sudo gedit ~/.bashrc
 ```
-Add the installation path to bashrc file:
+3. Add the installation path to bashrc file:
 ```
 export tiDEMPM=/user_path/tiDEMPM
 ```
