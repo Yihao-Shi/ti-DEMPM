@@ -10,7 +10,10 @@ A high performance objected-oriented Discrete Element Method- Material Point Met
 The features are listed as follows:
 1. Discrete Element Method (only spherical particles supported)
 2. Material Point Method (Linear elastic / Von-Mises / Tresca / Mohr-Coumlob / Drucker-Parger / Nowtonian Fluid / Non-Newtonian Fluid / Elas-plastic)
-3. DEMPM coupling (Penlaty Method / Incremental potential contact)
+3. DEMPM coupling
+### Coupling Scheme
+- Penlaty Method
+- Incremental potential contact
 
 ## Future Work
 1. Multisphere particles (clump) are supported.
