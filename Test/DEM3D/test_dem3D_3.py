@@ -1,7 +1,7 @@
 from __init__ import *
-import DEMLib3D_v1.DEM as DEM
+import DEMLib3D.DEM as DEM
 import math
-ti.init(arch=ti.cpu, default_fp=ti.f32, debug=True)
+ti.init(arch=ti.cpu, default_fp=ti.f32, debug=False)
 
 
 # Test for Linear contact models // Rotation
@@ -44,7 +44,7 @@ if __name__ == "__main__":
     dem.BodyInfo[0].fixedV = ti.Vector([0, 0, 0])                           # Fixed velocity
     dem.BodyInfo[0].fixedW = ti.Vector([0, 0, 0])                           # Fixed angular velocity
     dem.BodyInfo[0].orientation = ti.Vector([0, 0, 1])                      # Initial orientation
-    dem.BodyInfo[0].DT = ti.Vector([0, 10, 3.0])                           # DT
+    dem.BodyInfo[0].DT = ti.Vector([0, 0.3, 3.0])                           # DT
 
     dem.WallInfo[0].ID = 0                                                  # Body ID
     dem.WallInfo[0].Mat = 0                                                 # Material Name of Body

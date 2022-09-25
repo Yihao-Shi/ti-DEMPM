@@ -1,6 +1,5 @@
 from __init__ import *
-import DEMLib3D_v1.DEM as DEM
-import DEMLib3D_v1.TimeIntegrationDEM as TimeIntegrationDEM
+import DEMLib3D.DEM as DEM
 import math
 ti.init(arch=ti.cpu, default_fp=ti.f32, debug=False)
 

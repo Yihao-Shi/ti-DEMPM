@@ -1,5 +1,5 @@
 from __init__ import *
-import DEMLib3D_v1.DEM as DEM
+import DEMLib3D.DEM as DEM
 import math
 ti.init(arch=ti.cpu, default_fp=ti.f32, debug=False)
 
@@ -95,15 +95,14 @@ if __name__ == "__main__":
     dem.AddContactModel()
     dem.AddBodies(max_particle_num=4000)
     dem.AddWall(max_facet_num=5)
-    dem.AddContactPair(max_contact_num=24000)
+    dem.AddContactPair(max_contact_num=23993)
     dem.AddNeighborList(multiplier=4, max_potential_particle_pairs=150000, max_potential_wall_pairs=50000)
 
     # Solve
     TIME: float = 5                                                         # Total simulation time
     saveTime: float = 0.05                                                  # save per time step
     CFL = 0.5                                                               # Courant-Friedrichs-Lewy condition
-    vtkPath = './vtkDataTest4'                                              # VTK output path
-    ascPath = './vtkDataTest4/postProcessing'                               # Monitoring data path
+    vtkPath = './vtkDataTest6'                                              # VTK output path
+    ascPath = './vtkDataTest6/postProcessing'                               # Monitoring data path
 
     dem.Solver(TIME, saveTime, CFL, vtkPath, ascPath, adaptive=False)
-

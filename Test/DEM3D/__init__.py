@@ -1,4 +1,4 @@
 import taichi as ti
-import sys
-sys.path.append("/home/eleven/Work/DEMPMCoupling/Library")
+import sys, os
+sys.path.append(os.environ.get('tiDEMPM'))
 
