@@ -4,12 +4,41 @@ A high performance objected-oriented Discrete Element Method- Material Point Met
 ## Examples
 
 ## Features
-### Discrete Element Method (only spherical particles supported)
-### Material Point Method (Linear elastic / Von-Mises / Tresca / Mohr-Coumlob / Drucker-Parger / Nowtonian Fluid / Non-Newtonian Fluid / Elas-plastic)
+### Discrete Element Method 
+- only spherical particles supported)
+
+- Search Algorithm
+1. Sorted based
+2. Multilevel linked cell
+
+### Material Point Method 
+- Constitutive Model
+1. Linear elastic
+2. Von-Mises
+3. Tresca
+4. Mohr-Coumlob
+5. Drucker-Parger
+6. Elas-plastic
+7. Modified Cam Clay
+8. Hardening Soil
+9. Nowtonian Fluid
+10. Non-Newtonian Fluid
+
+- Integration Scheme
+1. USF
+2. USL
+3. MUSL
+4. GIMPM
+5. MLS-MPM
+
+- Stability features
+12. B-bar Method
+13. F-bar Method
+
 ### DEMPM coupling
-Coupling Scheme:
--- Penlaty Method
--- Incremental potential contact
+- Coupling Scheme:
+1. Penlaty Method
+2. Incremental potential contact
 
 ## Future Work
 1. Multisphere particles (clump) are supported.
