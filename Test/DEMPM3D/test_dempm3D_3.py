@@ -3,7 +3,7 @@ import math
 import MPMLib3D.MPM as MPM
 import DEMLib3D.DEM as DEM
 import DEMPMLib3D.DEMPM as DEMPM
-ti.init(arch=ti.cpu, default_fp=ti.f32, debug=True)
+ti.init(arch=ti.cpu, default_fp=ti.f32, debug=False)
 
 
 @ti.kernel
@@ -32,9 +32,11 @@ if __name__ == "__main__":
     dem.MatInfo[0].Kn = 2e7                                                 # Contact normal stiffness
     dem.MatInfo[0].Ks = 1e4                                                 # Contact tangential stiffness
     dem.MatInfo[0].Mu = 0.2                                                 # Friction coefficient
-    dem.MatInfo[0].localDamping = [0., 0.]                                  # /Local damping/ Translation & Rolling
-    dem.MatInfo[0].visDamping = [0., 0.]                                    # /Viscous damping/ Normal & Tangential
-    dem.MatInfo[0].ParticleRho = 4111.1                                     # Particle density
+    dem.MatInfo[0].ForceLocalDamping = 0.                                   # /Local damping/ 
+    dem.MatInfo[0].TorqueLocalDamping = 0.                                  # /Local damping/ 
+    dem.MatInfo[0].NormalViscousDamping = 0.                                # /Viscous damping/ 
+    dem.MatInfo[0].TangViscousDamping = 0.                                  # /Viscous damping/
+    dem.MatInfo[0].ParticleRho = 2061                                     # Particle density
 
     # DEM body domain
     dem.BodyInfo[0].ID = 0                                                  # Body ID
@@ -66,7 +68,7 @@ if __name__ == "__main__":
                   dx=ti.Vector([0.01, 0.01, 0.01]),                         # size of one grid
                   npic=2,                                                   # Number of MPM particles per subdomain
                   boundary=ti.Vector([0, 0, 0]),                            # periodic boundary condition
-                  damping=0.02,                                             # Damping ratio
+                  damping=0.,                                             # Damping ratio
                   algorithm=3,                                              # /Transfer algorithm/ 0 for USF; 1 for USL; 2 for MUSL; 3 for GIMP; 4 for MLS; 
                   shape_func=1,                                             # /Shape Functions/ 0 for Linear; 1 for GIMP; 2 for Quadratic BSpline; 3 for Cubic BSpline; 4 for NURBS
                   gravity=ti.Vector([0, 0, -9.8]),                          # Gravity (body force)
@@ -82,10 +84,10 @@ if __name__ == "__main__":
 
     # Physical parameters of particles
     mpm.MatInfo[0].Type = 2                                                 # /Constitutive model/ 0 for Hyper-elastic; 1 for Mohr-Coulomb; 2 for Drucker-Parger; 3 for Newtonian
-    mpm.MatInfo[0].Modulus = 7.5e6                                          # Young's Modulus for soil; Bulk modulus for fluid
+    mpm.MatInfo[0].Modulus = 7.5e4                                          # Young's Modulus for soil; Bulk modulus for fluid
     mpm.MatInfo[0].mu = 0.2                                                 # Possion ratio
-    mpm.MatInfo[0].InternalFric = 29 / 180 * math.pi                        # Internal friction angle
-    mpm.MatInfo[0].Dilation = 6 / 180 * math.pi                            # Angle of dilatation
+    mpm.MatInfo[0].InternalFric = 12 / 180 * math.pi                        # Internal friction angle
+    mpm.MatInfo[0].Dilation = 0 / 180 * math.pi                            # Angle of dilatation
     mpm.MatInfo[0].Cohesion = 0.                                            # Cohesion coefficient
     mpm.MatInfo[0].Tensile = 0.                                             # Tensile cut-off
     mpm.MatInfo[0].dpType = 2                                               # Drucker-Prager model
@@ -94,7 +96,7 @@ if __name__ == "__main__":
     mpm.BodyInfo[0].ID = 0                                                  # Body ID
     mpm.BodyInfo[0].Mat = 0                                                 # Material Name of Body
     mpm.BodyInfo[0].Type = 0                                                # /Body shape/ 0 for rectangle; 1 for triangle; 2 for sphere
-    mpm.BodyInfo[0].MacroRho = 600.5                                        # Macro density
+    mpm.BodyInfo[0].MacroRho = 200                                          # Macro density
     mpm.BodyInfo[0].pos0 = ti.Vector([0., 0., 0.])                          # Initial position or center of sphere of Body
     mpm.BodyInfo[0].len = ti.Vector([1.02, 0.1, 0.29])                      # Size of Body
     mpm.BodyInfo[0].v0 = ti.Vector([0, 0, 0])                               # Initial velocity
@@ -134,7 +136,7 @@ if __name__ == "__main__":
 
     dempm.MPMContactInfo[0].Kn = 1e6                                        # Contact normal stiffness between MPM and DEM
     dempm.MPMContactInfo[0].Ks = 1e4                                        # Contact tangential stiffness between MPM and DEM
-    dempm.MPMContactInfo[0].Mu = 0.5                                        # Friction coefficient between MPM and DEM
+    dempm.MPMContactInfo[0].Mu = 0.2                                        # Friction coefficient between MPM and DEM
     dempm.MPMContactInfo[0].NormalViscousDamping = 0.                       # /Viscous damping/ 
     dempm.MPMContactInfo[0].TangViscousDamping = 0.                         # /Viscous damping/
 
@@ -147,7 +149,7 @@ if __name__ == "__main__":
     saveTime: float = 0.002                                                  # save per time step
     CFL = 0.5                                                               # Courant-Friedrichs-Lewy condition
     vtkPath = './vtkDataTest3'                                              # VTK output path
-    ascPath = './vtkDataTest3/postProcessing'                               # Monitoring data path
+    ascPath = './vtkDataTest3/postProcessing/vel_330'                       # Monitoring data path
 
     dempm.Solver(TIME, saveTime, CFL, vtkPath, ascPath, adaptive=False)
 
