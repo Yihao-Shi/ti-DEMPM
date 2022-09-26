@@ -51,7 +51,7 @@ A high performance objected-oriented Discrete Element Method- Material Point Met
 ```
 bash requirements.sh
 ```
-2. Set up eniveronment variables
+2. Set up environment variables
 ```
 sudo gedit ~/.bashrc
 ```
