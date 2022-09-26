@@ -1,5 +1,6 @@
 # ti-DEMPM 
-A high performance objected-oriented Discrete Element Method- Material Point Method (DEM-MPM) simulator in [Taichi](https://github.com/taichi-dev/taichi). (In Progress) 
+A high performance objected-oriented Discrete Element Method- Material Point Method (DEM-MPM) simulator in [Taichi](https://github.com/taichi-dev/taichi). 
+- developed by Shi-Yihao Zhejiang Universiy(In Progress) 
 
 ## Examples
 
@@ -66,5 +67,3 @@ python test.py
 
 ## Acknowledgememt
 Implementation is largely inspired by [ComFluSoM](https://github.com/peizhang-cn/ComFluSoM).
-
-- developed by Shi-Yihao Zhejiang Universiy
