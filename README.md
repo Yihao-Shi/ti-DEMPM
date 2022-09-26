@@ -3,10 +3,10 @@ A high performance objected-oriented Discrete Element Method- Material Point Met
 - developed by Shi-Yihao Zhejiang Universiy(In Progress) 
 
 ## Examples
-<p align="left">
+<p align="center">
   <img src="https://github.com/Yihao-Shi/ti-DEMPM/blob/main/Test/DEMPM3D/animation.gif" width="50%" height="50%" />
 
-<align="right">
+<p align="center">
   <img src="https://github.com/Yihao-Shi/ti-DEMPM/blob/main/Test/DEMPM3D/result.gif" width="50%" height="50%" />
 </p>
 
