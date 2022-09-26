@@ -59,6 +59,10 @@ sudo gedit ~/.bashrc
 ```
 export tiDEMPM=/user_path/tiDEMPM
 ```
+4. Run the test
+'''
+python test.py
+'''
 
 ## Acknowledgememt
 Implementation is largely inspired by [ComFluSoM](https://github.com/peizhang-cn/ComFluSoM).
