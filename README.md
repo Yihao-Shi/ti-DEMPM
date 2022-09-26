@@ -5,8 +5,8 @@ A high performance objected-oriented Discrete Element Method- Material Point Met
 ## Examples
 <p align="left">
   <img src="https://github.com/Yihao-Shi/ti-DEMPM/blob/main/Test/DEMPM3D/animation.gif" width="50%" height="50%" />
-</p>
-<p align="right">
+
+<align="right">
   <img src="https://github.com/Yihao-Shi/ti-DEMPM/blob/main/Test/DEMPM3D/result.gif" width="50%" height="50%" />
 </p>
 
