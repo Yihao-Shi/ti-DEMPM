@@ -3,8 +3,11 @@ A high performance objected-oriented Discrete Element Method- Material Point Met
 - developed by Shi-Yihao Zhejiang Universiy(In Progress) 
 
 ## Examples
-<p align="center">
-  <img src="https://github.com/erizmr/SPH_Taichi/blob/master/data/gif/dragon_bath_large.gif" width="50%" height="50%" />
+<p align="left">
+  <img src="https://github.com/Yihao-Shi/ti-DEMPM/blob/main/Test/DEMPM3D/animation.gif" width="50%" height="50%" />
+</p>
+<p align="right">
+  <img src="https://github.com/Yihao-Shi/ti-DEMPM/blob/main/Test/DEMPM3D/result.gif" width="50%" height="50%" />
 </p>
 
 ## Features
