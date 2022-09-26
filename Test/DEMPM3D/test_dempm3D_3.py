@@ -149,7 +149,7 @@ if __name__ == "__main__":
     saveTime: float = 0.002                                                  # save per time step
     CFL = 0.5                                                               # Courant-Friedrichs-Lewy condition
     vtkPath = './vtkDataTest3'                                              # VTK output path
-    ascPath = './vtkDataTest3/postProcessing/vel_330'                       # Monitoring data path
+    ascPath = './vtkDataTest3/postProcessing/vel_303'                       # Monitoring data path
 
     dempm.Solver(TIME, saveTime, CFL, vtkPath, ascPath, adaptive=False)
 
