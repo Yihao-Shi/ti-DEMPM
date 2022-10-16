@@ -92,17 +92,17 @@ class DEM:
     
     def AddContactModel(self):
         print('------------------------ ContactModels Initialization ------------------------')
+        if ti.static(self.CmType == 0):
+            self.contModel = ContactModels.LinearContactModel(self.matNum, self.Dt[None])
+        elif ti.static(self.CmType == 1):
+            self.contModel = ContactModels.HertzMindlinContactModel(self.matNum, self.Dt[None])
+        elif ti.static(self.CmType == 2):
+            self.contModel = ContactModels.LinearRollingResistanceContactModel(self.matNum, self.Dt[None])
+        elif ti.static(self.CmType == 3):
+            self.contModel = ContactModels.LinearBondContactModel(self.matNum, self.Dt[None])
+        elif ti.static(self.CmType == 4):
+            self.contModel = ContactModels.LinearParallelBondContactModel(self.matNum, self.Dt[None])
         for nm in range(self.MatInfo.shape[0]):
-            if ti.static(self.CmType == 0):
-                self.contModel = ContactModels.LinearContactModel(self.matNum, self.Dt[None])
-            elif ti.static(self.CmType == 1):
-                self.contModel = ContactModels.HertzMindlinContactModel(self.matNum, self.Dt[None])
-            elif ti.static(self.CmType == 2):
-                self.contModel = ContactModels.LinearRollingResistanceContactModel(self.matNum, self.Dt[None])
-            elif ti.static(self.CmType == 3):
-                self.contModel = ContactModels.LinearBondContactModel(self.matNum, self.Dt[None])
-            elif ti.static(self.CmType == 4):
-                self.contModel = ContactModels.LinearParallelBondContactModel(self.matNum, self.Dt[None])
             self.contModel.ParticleMaterialInit(nm, self.MatInfo)
 
     def AddBodies(self, max_particle_num):
