@@ -48,7 +48,7 @@ A high performance objected-oriented Discrete Element Method- Material Point Met
   1. Multisphere particles (clump) are supported.
   2. GPU memory allocate
   3. More constitutive models in MPM
-  4. Pre-progress (i.e., input obj files and etc.)
+  4. Pre-processing (i.e., input obj files and etc.)
 
 ## Install
 1. Install essential dependencies
