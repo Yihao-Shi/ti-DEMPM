@@ -11,7 +11,7 @@
 </p>
 
 ## 3. test2: Ball sliding in the inclined plane including rotation
-### 3*miu > tan(theta)
+### $3*miu > tan(theta)$
 <p align="center">
   <img src="https://github.com/Yihao-Shi/ti-DEMPM/blob/main/Validation/DEM/Figure2_1.png" width="50%" height="50%" />
 </p>
