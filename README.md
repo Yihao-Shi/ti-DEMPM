@@ -8,7 +8,7 @@ A high performance objected-oriented Discrete Element Method- Material Point Met
   <img src="https://github.com/Yihao-Shi/ti-DEMPM/blob/main/Test/DEMPM3D/animation.gif" width="50%" height="50%" />
 </p>
 <p align="center">
-  <img src="https://github.com/Yihao-Shi/ti-DEMPM/blob/main/Test/DEMPM3D/result.gif" width="50%" height="50%" />
+  <img src="https://github.com/Yihao-Shi/ti-DEMPM/blob/main/Test/DEMPM3D/result3_1.gif" width="50%" height="50%" />
 </p>
 
 ### Stone Column using ti-DEMPM
