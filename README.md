@@ -5,10 +5,10 @@ A high performance objected-oriented Discrete Element Method- Material Point Met
 ## Examples
 ### Sphere impacts and penetrates into granular material
 <p align="center">
-  <img src="https://github.com/Yihao-Shi/ti-DEMPM/blob/main/Test/DEMPM3D/animation.gif" width="50%" height="50%" />
+  <img src="https://github.com/Yihao-Shi/ti-DEMPM/blob/main/Validation/DEMPM/animation3_1.gif" width="50%" height="50%" />
 </p>
 <p align="center">
-  <img src="https://github.com/Yihao-Shi/ti-DEMPM/blob/main/Test/DEMPM3D/result3_1.gif" width="50%" height="50%" />
+  <img src="https://github.com/Yihao-Shi/ti-DEMPM/blob/main/Validation/DEMPM/result3_1.gif" width="50%" height="50%" />
 </p>
 
 ### Stone Column using ti-DEMPM
