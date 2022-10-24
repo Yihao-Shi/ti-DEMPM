@@ -18,9 +18,12 @@
 </p>
 
 ## 5. test5: B-bar Method
+### None Stabilization technique
 <p align="center">
   <img src="https://github.com/Yihao-Shi/ti-DEMPM/blob/main/Validation/MPM/result4_1.gif" width="50%" height="50%" />
 </p>
+
+### B-bar Method
 <p align="center">
   <img src="https://github.com/Yihao-Shi/ti-DEMPM/blob/main/Validation/MPM/result4_2_Bbar.gif" width="50%" height="50%" />
 </p>
