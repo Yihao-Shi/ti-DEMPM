@@ -42,13 +42,13 @@ A high performance objected-oriented Discrete Element Method- Material Point Met
 ### DEMPM coupling
   - Coupling Scheme:
     1. Penlaty Method
-    2. Incremental potential contact
+    2. Barrier Method
 
 ## Future Work
-  1. Multisphere particles (clump) are supported.
+  1. Multisphere particles (clump) 
   2. GPU memory allocate
   3. More constitutive models in MPM
-  4. Pre-processing (i.e., input obj files and etc.)
+  4. Pre-processing (i.e., input obj files and JSON)
 
 ## Install
 1. Install essential dependencies
