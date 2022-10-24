@@ -12,7 +12,6 @@ class HASHMAP:
         elif type == 2:                                                                                  # Matrix Hash Map
             self.map = ti.Matrix.field(TensorSize, TensorSize, float, HashSize)
         self.Key = ti.field(ti.u64, HashSize)
-        self.count = ti.field(int, ())
     
     @ti.func
     def get_hash(self, key: ti.u64):
@@ -52,7 +51,6 @@ class HASHMAP:
             slot = self.rehash(slot, attempt)
             attempt += 1
         if self.Key[slot] == 0: slot = -1
-        if attempt > self.count[None]: self.count[None] = attempt
         return slot
 
     @ti.func

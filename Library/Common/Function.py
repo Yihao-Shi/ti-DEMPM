@@ -105,3 +105,8 @@ def xor(a, b):
 @ti.func
 def PairingFunction(i, j):
     return ti.u64(0.5 * (i + j) * (i + j + 1) + j)
+
+
+@ti.func
+def clamp(min_val, max_val, val):
+    return min(max(min_val, val), max_val)
