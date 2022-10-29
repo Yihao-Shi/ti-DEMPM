@@ -37,10 +37,10 @@
 
 #### (ii). Overconsolidated Soil
 <p align="center">
-  <img src="https://github.com/Yihao-Shi/ti-DEMPM/blob/main/Validation/MPM/result6_2.png" width="50%" height="50%" />
+  <img src="https://github.com/Yihao-Shi/ti-DEMPM/blob/main/Validation/MPM/Figure6_2.png" width="50%" height="50%" />
 </p>
 
 ### Column Collapse Test
 <p align="center">
-  <img src="https://github.com/Yihao-Shi/ti-DEMPM/blob/main/Validation/MPM/result7_1.png" width="50%" height="50%" />
+  <img src="https://github.com/Yihao-Shi/ti-DEMPM/blob/main/Validation/MPM/Figure7_1.png" width="50%" height="50%" />
 </p>
