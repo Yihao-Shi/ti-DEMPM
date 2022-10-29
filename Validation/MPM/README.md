@@ -42,5 +42,5 @@
 
 ### Column Collapse Test
 <p align="center">
-  <img src="https://github.com/Yihao-Shi/ti-DEMPM/blob/main/Validation/MPM/Figure7_1.png" width="50%" height="50%" />
+  <img src="https://github.com/Yihao-Shi/ti-DEMPM/blob/main/Validation/MPM/Figure7_1.png" width="100%" height="50%" />
 </p>
