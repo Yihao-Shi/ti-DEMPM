@@ -13,7 +13,7 @@ A high performance objected-oriented Discrete Element Method- Material Point Met
 
 ### Stone Column using ti-DEMPM
 <p align="center">
-  <img src="https://github.com/Yihao-Shi/ti-DEMPM/blob/main/demo/stone%20column.png" width="50%" height="50%" />
+  <img src="https://github.com/Yihao-Shi/ti-DEMPM/blob/main/demo/result.gif" width="50%" height="50%" />
 
 ## Features
 ### Discrete Element Method 
